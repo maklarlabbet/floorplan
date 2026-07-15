@@ -1,5 +1,4 @@
 <link href="css/style.css" rel="stylesheet" />
-<?php
-echo '<h1>Welcome to the coding world!</h1>';
-echo '<p>Here you will learn exciting things.</p>';
-?>
+
+<h1>Welcome to the floorplan!</h1>
+<p>We're on it and you'll be able to use it soon.</p>
