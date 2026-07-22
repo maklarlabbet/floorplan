@@ -12,6 +12,7 @@
     <div class="row justify-content-center">
       <div class="col-md-8 col-lg-6">
         <h1 class="text-center mb-4">Contact Us</h1>
+        <p class="text-center text-muted mb-4">Have a question about our floorplans or services? Fill out the form below and our team will get back to you as soon as possible.</p>
         <form action="contact.php" method="post">
           <div class="mb-3">
             <label for="name" class="form-label">Name</label>
