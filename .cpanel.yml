@@ -1,5 +1,0 @@
----
-deployment:
-  tasks:
-    - export DEPLOYPATH=/home/creator4/public_html/floorplan.maklarlabbet.se
-    - /bin/cp -R * $DEPLOYPATH
