@@ -196,6 +196,7 @@ h1, h2, h3 {
   position: fixed; inset: 0; background: rgba(29,43,58,0.55);
   display: flex; align-items: center; justify-content: center; z-index: 100;
 }
+.modal[hidden] { display: none; }
 .modal-card {
   background: var(--paper-raised); border-radius: 6px; padding: 28px;
   width: 420px; max-width: 92vw; border: 1.5px solid var(--border);
