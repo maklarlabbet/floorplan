@@ -96,6 +96,11 @@ function call_claude($body) {
         return ['ok' => false, 'error' => 'Anthropic API key is not configured. Edit config/config.php.'];
     }
 
+    $payload = json_encode($body, JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($payload === false) {
+        return ['ok' => false, 'error' => 'Failed to encode request for Claude: ' . json_last_error_msg()];
+    }
+
     $ch = curl_init(ANTHROPIC_API_URL);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -105,7 +110,7 @@ function call_claude($body) {
             'x-api-key: ' . ANTHROPIC_API_KEY,
             'anthropic-version: 2023-06-01',
         ],
-        CURLOPT_POSTFIELDS => json_encode($body),
+        CURLOPT_POSTFIELDS => $payload,
         CURLOPT_TIMEOUT => 120,
     ]);
     $response = curl_exec($ch);
