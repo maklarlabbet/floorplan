@@ -89,9 +89,12 @@ function claude_regenerate($current_json, $annotation_summary) {
 }
 
 /**
- * Low-level call to the Anthropic Messages API. Returns ['ok'=>bool, 'json'=>array|null, 'error'=>string|null]
+ * Low-level call to the Anthropic Messages API. Returns the raw text of Claude's reply,
+ * without assuming it must be JSON. Used both by call_claude() (which additionally requires
+ * and parses a floorplan-JSON response) and by the connection-test diagnostic.
+ * Returns ['ok'=>bool, 'text'=>string|null, 'error'=>string|null]
  */
-function call_claude($body) {
+function call_claude_raw($body) {
     if (!defined('ANTHROPIC_API_KEY') || ANTHROPIC_API_KEY === '' || strpos(ANTHROPIC_API_KEY, 'sk-ant-xxxx') === 0) {
         return ['ok' => false, 'error' => 'Anthropic API key is not configured. Edit config/config.php.'];
     }
@@ -100,13 +103,16 @@ function call_claude($body) {
     if ($payload === false) {
         return ['ok' => false, 'error' => 'Failed to encode request as JSON: ' . json_last_error_msg()];
     }
+    $payload_len = strlen($payload);
 
     $ch = curl_init(ANTHROPIC_API_URL);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
+            'Content-Length: ' . $payload_len,
             'x-api-key: ' . ANTHROPIC_API_KEY,
             'anthropic-version: 2023-06-01',
             // Without this, cURL automatically adds "Expect: 100-continue" for POST bodies
@@ -124,14 +130,14 @@ function call_claude($body) {
     curl_close($ch);
 
     if ($response === false) {
-        return ['ok' => false, 'error' => 'Request to Claude failed: ' . $curl_err];
+        return ['ok' => false, 'error' => 'Request to Claude failed: ' . $curl_err . ' (attempted to send ' . $payload_len . ' bytes)'];
     }
 
     $decoded = json_decode($response, true);
 
     if ($http_code >= 400) {
         $msg = $decoded['error']['message'] ?? ('HTTP ' . $http_code);
-        return ['ok' => false, 'error' => 'Claude API error: ' . $msg];
+        return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (we sent ' . $payload_len . ' bytes; if this says the request was empty, see README troubleshooting section)'];
     }
 
     $text = '';
@@ -143,14 +149,27 @@ function call_claude($body) {
         }
     }
 
-    $clean = trim($text);
+    return ['ok' => true, 'text' => $text];
+}
+
+/**
+ * Calls Claude and requires/parses a floorplan-JSON response (used by the analyze and
+ * regenerate flows). Returns ['ok'=>bool, 'json'=>array|null, 'error'=>string|null]
+ */
+function call_claude($body) {
+    $raw = call_claude_raw($body);
+    if (!$raw['ok']) {
+        return $raw;
+    }
+
+    $clean = trim($raw['text']);
     $clean = preg_replace('/^```(json)?/i', '', $clean);
     $clean = preg_replace('/```$/', '', $clean);
     $clean = trim($clean);
 
     $parsed = json_decode($clean, true);
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
-        return ['ok' => false, 'error' => 'Claude did not return valid JSON.', 'raw' => $text];
+        return ['ok' => false, 'error' => 'Claude did not return valid JSON.', 'raw' => $raw['text']];
     }
 
     return ['ok' => true, 'json' => $parsed];

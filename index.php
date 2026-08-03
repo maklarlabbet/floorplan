@@ -29,8 +29,12 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       <p class="eyebrow">Title Block</p>
       <h1>Your Projects</h1>
     </div>
-    <button class="btn btn-primary" id="btn-new-project">+ New Floorplan</button>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <button class="btn btn-ghost" id="btn-test-connection">Test Claude connection</button>
+      <button class="btn btn-primary" id="btn-new-project">+ New Floorplan</button>
+    </div>
   </div>
+  <p class="form-note" id="connection-status"></p>
 
   <?php if (empty($projects)): ?>
     <div class="empty-state">
@@ -40,13 +44,16 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   <?php else: ?>
     <div class="project-grid">
       <?php foreach ($projects as $p): ?>
-        <a class="project-card" href="editor.php?project_id=<?= (int)$p['id'] ?>">
-          <div class="project-card-thumb">⌂</div>
-          <div class="project-card-body">
-            <h3><?= htmlspecialchars($p['name']) ?></h3>
-            <p><?= (int)$p['version_count'] ?> version<?= $p['version_count'] == 1 ? '' : 's' ?> · updated <?= date('M j, Y', strtotime($p['updated_at'])) ?></p>
-          </div>
-        </a>
+        <div class="project-card" data-id="<?= (int)$p['id'] ?>">
+          <a class="project-card-link" href="editor.php?project_id=<?= (int)$p['id'] ?>">
+            <div class="project-card-thumb">⌂</div>
+            <div class="project-card-body">
+              <h3><?= htmlspecialchars($p['name']) ?></h3>
+              <p><?= (int)$p['version_count'] ?> version<?= $p['version_count'] == 1 ? '' : 's' ?> · updated <?= date('M j, Y', strtotime($p['updated_at'])) ?></p>
+            </div>
+          </a>
+          <button class="project-card-delete" data-id="<?= (int)$p['id'] ?>" title="Delete project">✕</button>
+        </div>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>

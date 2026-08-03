@@ -81,6 +81,12 @@ Go to your domain (or subfolder) in a browser. You'll land on the sign-in page �
 
 ## Notes, limits, and things you may want to change
 
+- **Deleting a project**: hover a project card on the dashboard and click the small ✕ in
+  the top-right corner. This permanently removes the project, all its versions, and its
+  uploaded image.
+- **Testing your API setup**: the "Test Claude connection" button on the dashboard sends a
+  tiny text-only request (no image) so you can confirm your API key and connectivity work
+  before troubleshooting anything image-specific.
 - **Authentication is intentionally simple** — username/email + password, PHP sessions,
   `password_hash()`/`password_verify()`. There's no password reset flow or email verification.
   Add these if you're opening this up beyond yourself/your team.
@@ -114,6 +120,22 @@ Go to your domain (or subfolder) in a browser. You'll land on the sign-in page �
 - **Upload succeeds but analysis fails** → check the error message shown; it's usually
   either the API key, a network/firewall block on outbound HTTPS from your host (rare on
   cPanel), or a temporarily overloaded Anthropic API (retry).
+- **"The request body is not valid JSON: Input is a zero-length, empty document"** → this
+  means your server sent an empty request body to Anthropic. The most common cause is cURL's
+  automatic `Expect: 100-continue` behavior on large POST bodies (a base64-encoded image is
+  always large enough to trigger it), which some hosts' outbound proxies mishandle and silently
+  drop. This app already disables that behavior — if you still see this error after updating
+  to the latest version of `includes/functions.php`, use the **"Test Claude connection"**
+  button on the dashboard first: it sends a tiny text-only request with no image attached.
+  - If the tiny test **also** fails the same way, the problem isn't image-size-related at all —
+    double check your API key, and confirm your host allows outbound HTTPS to `api.anthropic.com`
+    (contact your host if unsure).
+  - If the tiny test **succeeds** but image uploads still fail, it's specific to larger request
+    bodies — this points to a host-level proxy/firewall limitation; contact your hosting
+    provider's support and mention outbound POST bodies over ~100KB are being truncated.
+  - Also check that you actually re-uploaded the updated file and that PHP's opcache (if
+    enabled) has picked up the change — restarting PHP from cPanel's "Select PHP Version" /
+    MultiPHP Manager, or waiting a minute, usually resolves stale-cache issues.
 
 ## Tested
 

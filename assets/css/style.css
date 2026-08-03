@@ -161,16 +161,25 @@ h1, h2, h3 {
   gap: 18px;
 }
 .project-card {
-  display: block;
+  position: relative;
   background: var(--paper-raised);
   border: 1.5px solid var(--border);
   border-radius: 5px;
-  text-decoration: none;
-  color: var(--ink);
   overflow: hidden;
   transition: box-shadow 0.15s ease, transform 0.1s ease;
 }
 .project-card:hover { box-shadow: 3px 3px 0 var(--border); transform: translate(-1px, -1px); }
+.project-card-link { display: block; text-decoration: none; color: var(--ink); }
+.project-card-delete {
+  position: absolute; top: 8px; right: 8px;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--paper-raised);
+  color: var(--ink-soft); font-size: 13px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.45; transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.project-card:hover .project-card-delete, .project-card-delete:focus { opacity: 1; }
+.project-card-delete:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
 .project-card-thumb {
   height: 90px;
   background: var(--blueprint-pale);
