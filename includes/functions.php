@@ -96,6 +96,11 @@ function call_claude($body) {
         return ['ok' => false, 'error' => 'Anthropic API key is not configured. Edit config/config.php.'];
     }
 
+    $payload = json_encode($body);
+    if ($payload === false) {
+        return ['ok' => false, 'error' => 'Failed to encode request as JSON: ' . json_last_error_msg()];
+    }
+
     $ch = curl_init(ANTHROPIC_API_URL);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -104,8 +109,13 @@ function call_claude($body) {
             'Content-Type: application/json',
             'x-api-key: ' . ANTHROPIC_API_KEY,
             'anthropic-version: 2023-06-01',
+            // Without this, cURL automatically adds "Expect: 100-continue" for POST bodies
+            // over ~1KB (which a base64-encoded image always is). Many hosting providers'
+            // outbound proxies/firewalls don't handle that handshake correctly and silently
+            // drop the request body, which is what produced the "zero-length document" error.
+            'Expect:',
         ],
-        CURLOPT_POSTFIELDS => json_encode($body),
+        CURLOPT_POSTFIELDS => $payload,
         CURLOPT_TIMEOUT => 120,
     ]);
     $response = curl_exec($ch);
