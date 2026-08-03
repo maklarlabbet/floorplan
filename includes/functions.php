@@ -92,7 +92,7 @@ function claude_regenerate($current_json, $annotation_summary) {
  * Low-level call to the Anthropic Messages API. Returns the raw text of Claude's reply,
  * without assuming it must be JSON. Used both by call_claude() (which additionally requires
  * and parses a floorplan-JSON response) and by the connection-test diagnostic.
- * Returns ['ok'=>bool, 'text'=>string|null, 'error'=>string|null]
+ * Returns ['ok'=>bool, 'text'=>string|null, 'error'=>string|null, 'debug'=>string|null]
  */
 function call_claude_raw($body) {
     if (!defined('ANTHROPIC_API_KEY') || ANTHROPIC_API_KEY === '' || strpos(ANTHROPIC_API_KEY, 'sk-ant-xxxx') === 0) {
@@ -103,31 +103,61 @@ function call_claude_raw($body) {
     if ($payload === false) {
         return ['ok' => false, 'error' => 'Failed to encode request as JSON: ' . json_last_error_msg()];
     }
-    $payload_len = strlen($payload);
 
+    $result = call_claude_via_curl($payload);
+
+    // If curl reports the exact "body arrived empty/malformed" symptom, it's most likely a
+    // quirk of curl/libcurl on this specific host talking to Anthropic's Cloudflare-fronted
+    // API — not a problem with the payload itself (already confirmed well-formed above).
+    // Retry once using PHP's stream-based HTTP client, a completely different implementation
+    // that sidesteps libcurl entirely, before giving up.
+    if (!$result['ok'] && preg_match('/not valid JSON|zero-length|empty document|unexpected character/i', $result['error'])) {
+        $fallback = call_claude_via_streams($payload);
+        if ($fallback['ok']) {
+            return $fallback;
+        }
+        return [
+            'ok' => false,
+            'error' => $result['error'] . ' | Streams fallback also failed: ' . $fallback['error'],
+            'debug' => $result['debug'] ?? null,
+        ];
+    }
+
+    return $result;
+}
+
+/**
+ * Sends the request via cURL. Captures a redacted wire-level verbose log for diagnostics.
+ */
+function call_claude_via_curl($payload) {
+    $payload_len = strlen($payload);
     $verbose = fopen('php://temp', 'w+');
 
     $ch = curl_init(ANTHROPIC_API_URL);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        // Deliberately NOT forcing CURLOPT_HTTP_VERSION_1_1 here — Anthropic's API sits behind
+        // Cloudflare, which strongly prefers HTTP/2. Forcing HTTP/1.1 was tried previously and
+        // is suspected to be the cause of the body silently failing to arrive on some hosts
+        // (curl reports "upload completely sent off" locally, but the origin sees zero bytes) —
+        // a known failure mode with certain older libcurl/OpenSSL builds against H2-first edges.
+        // Letting curl auto-negotiate the protocol via ALPN is the safer default.
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'x-api-key: ' . ANTHROPIC_API_KEY,
             'anthropic-version: 2023-06-01',
             // Without this, cURL automatically adds "Expect: 100-continue" for POST bodies
-            // over ~1KB (which a base64-encoded image always is). Many hosting providers'
-            // outbound proxies/firewalls don't handle that handshake correctly and silently
-            // drop or corrupt the request body.
+            // over ~1KB. Some hosting providers' outbound proxies/firewalls mishandle that.
             // NOTE: do NOT also set a manual Content-Length header here — curl already sets
             // one correctly from CURLOPT_POSTFIELDS, and adding a second one creates a
-            // duplicate header that some proxies mishandle by re-framing the request, which
-            // can corrupt the body instead of just dropping it.
+            // duplicate header that some proxies mishandle.
             'Expect:',
         ],
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_TIMEOUT => 120,
+        CURLOPT_FRESH_CONNECT => true,
+        CURLOPT_FORBID_REUSE => true,
         CURLOPT_VERBOSE => true,
         CURLOPT_STDERR => $verbose,
     ]);
@@ -151,9 +181,57 @@ function call_claude_raw($body) {
 
     if ($http_code >= 400) {
         $msg = $decoded['error']['message'] ?? ('HTTP ' . $http_code);
-        return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (we sent ' . $payload_len . ' bytes)', 'debug' => $verbose_snippet];
+        return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (we sent ' . $payload_len . ' bytes via cURL)', 'debug' => $verbose_snippet];
     }
 
+    return ['ok' => true, 'text' => extract_claude_text($decoded)];
+}
+
+/**
+ * Sends the request via PHP's built-in stream-based HTTP client (no libcurl involved at all).
+ * Used only as a fallback when cURL specifically reports a corrupted/empty body, to rule out
+ * a libcurl-vs-host quirk.
+ */
+function call_claude_via_streams($payload) {
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\n"
+                . "x-api-key: " . ANTHROPIC_API_KEY . "\r\n"
+                . "anthropic-version: 2023-06-01\r\n",
+            'content' => $payload,
+            'timeout' => 120,
+            'ignore_errors' => true, // so we still get the response body on 4xx/5xx
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+
+    $response = @file_get_contents(ANTHROPIC_API_URL, false, $context);
+
+    if ($response === false) {
+        $err = error_get_last();
+        return ['ok' => false, 'error' => 'Streams request failed: ' . ($err['message'] ?? 'unknown error')];
+    }
+
+    $http_code = 0;
+    if (isset($http_response_header[0]) && preg_match('/(\d{3})/', $http_response_header[0], $m)) {
+        $http_code = (int)$m[1];
+    }
+
+    $decoded = json_decode($response, true);
+
+    if ($http_code >= 400) {
+        $msg = $decoded['error']['message'] ?? ('HTTP ' . $http_code);
+        return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (sent via streams fallback)'];
+    }
+
+    return ['ok' => true, 'text' => extract_claude_text($decoded)];
+}
+
+function extract_claude_text($decoded) {
     $text = '';
     if (!empty($decoded['content']) && is_array($decoded['content'])) {
         foreach ($decoded['content'] as $block) {
@@ -162,8 +240,7 @@ function call_claude_raw($body) {
             }
         }
     }
-
-    return ['ok' => true, 'text' => $text];
+    return $text;
 }
 
 /**
