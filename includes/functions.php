@@ -105,6 +105,8 @@ function call_claude_raw($body) {
     }
     $payload_len = strlen($payload);
 
+    $verbose = fopen('php://temp', 'w+');
+
     $ch = curl_init(ANTHROPIC_API_URL);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -112,32 +114,44 @@ function call_claude_raw($body) {
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Content-Length: ' . $payload_len,
             'x-api-key: ' . ANTHROPIC_API_KEY,
             'anthropic-version: 2023-06-01',
             // Without this, cURL automatically adds "Expect: 100-continue" for POST bodies
             // over ~1KB (which a base64-encoded image always is). Many hosting providers'
             // outbound proxies/firewalls don't handle that handshake correctly and silently
-            // drop the request body, which is what produced the "zero-length document" error.
+            // drop or corrupt the request body.
+            // NOTE: do NOT also set a manual Content-Length header here — curl already sets
+            // one correctly from CURLOPT_POSTFIELDS, and adding a second one creates a
+            // duplicate header that some proxies mishandle by re-framing the request, which
+            // can corrupt the body instead of just dropping it.
             'Expect:',
         ],
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_TIMEOUT => 120,
+        CURLOPT_VERBOSE => true,
+        CURLOPT_STDERR => $verbose,
     ]);
     $response = curl_exec($ch);
     $curl_err = curl_error($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
+    rewind($verbose);
+    $verbose_log = stream_get_contents($verbose);
+    fclose($verbose);
+    // Redact the API key in case any of this ever surfaces in logs or error output.
+    $verbose_log = str_replace(ANTHROPIC_API_KEY, '[REDACTED]', $verbose_log);
+    $verbose_snippet = substr($verbose_log, 0, 1500);
+
     if ($response === false) {
-        return ['ok' => false, 'error' => 'Request to Claude failed: ' . $curl_err . ' (attempted to send ' . $payload_len . ' bytes)'];
+        return ['ok' => false, 'error' => 'Request to Claude failed: ' . $curl_err . ' (attempted to send ' . $payload_len . ' bytes)', 'debug' => $verbose_snippet];
     }
 
     $decoded = json_decode($response, true);
 
     if ($http_code >= 400) {
         $msg = $decoded['error']['message'] ?? ('HTTP ' . $http_code);
-        return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (we sent ' . $payload_len . ' bytes; if this says the request was empty, see README troubleshooting section)'];
+        return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (we sent ' . $payload_len . ' bytes)', 'debug' => $verbose_snippet];
     }
 
     $text = '';

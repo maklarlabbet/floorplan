@@ -17,7 +17,7 @@ $body = [
 $result = call_claude_raw($body);
 
 if (!$result['ok']) {
-    json_response(['ok' => false, 'error' => $result['error']], 502);
+    json_response(['ok' => false, 'error' => $result['error'], 'debug' => $result['debug'] ?? null], 502);
 }
 
 json_response(['ok' => true, 'message' => 'Connected to Claude successfully.', 'response' => trim($result['text'])]);

@@ -12,11 +12,16 @@ $(function () {
       if (res.ok) {
         $status.removeClass('error').text('✓ ' + res.message + ' (Claude replied: "' + res.response + '")');
       } else {
-        $status.addClass('error').text('✗ ' + res.error);
+        let msg = '✗ ' + res.error;
+        if (res.debug) msg += '\n\n' + res.debug;
+        $status.addClass('error').css('white-space', 'pre-wrap').text(msg);
       }
     }, 'json').fail(function (xhr) {
       $btn.prop('disabled', false).text('Test Claude connection');
-      $status.addClass('error').text('✗ ' + (xhr.responseJSON?.error || xhr.statusText));
+      const res = xhr.responseJSON;
+      let msg = '✗ ' + (res?.error || xhr.statusText);
+      if (res?.debug) msg += '\n\n' + res.debug;
+      $status.addClass('error').css('white-space', 'pre-wrap').text(msg);
     });
   });
 

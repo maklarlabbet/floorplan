@@ -33,10 +33,14 @@ $mime = $mime_map[$ext] ?? 'image/png';
 $result = claude_analyze_image($full_path, $mime);
 
 if (!$result['ok']) {
+    $stored_message = $result['error'];
+    if (!empty($result['debug'])) {
+        $stored_message .= "\n\n--- debug (curl verbose, redacted) ---\n" . $result['debug'];
+    }
     $stmt = $db->prepare('UPDATE floorplan_versions SET status = "failed", error_message = ? WHERE id = ?');
-    $stmt->bind_param('si', $result['error'], $version_id);
+    $stmt->bind_param('si', $stored_message, $version_id);
     $stmt->execute();
-    json_response(['ok' => false, 'error' => $result['error']], 502);
+    json_response(['ok' => false, 'error' => $result['error'], 'debug' => $result['debug'] ?? null], 502);
 }
 
 $json_str = json_encode($result['json']);
