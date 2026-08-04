@@ -31,6 +31,7 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
       <button class="btn btn-ghost" id="btn-test-connection">Test Claude connection</button>
+      <button class="btn btn-ghost" id="btn-test-echo">Test raw HTTPS POST</button>
       <button class="btn btn-primary" id="btn-new-project">+ New Floorplan</button>
     </div>
   </div>

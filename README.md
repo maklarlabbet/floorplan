@@ -120,22 +120,25 @@ Go to your domain (or subfolder) in a browser. You'll land on the sign-in page �
 - **Upload succeeds but analysis fails** → check the error message shown; it's usually
   either the API key, a network/firewall block on outbound HTTPS from your host (rare on
   cPanel), or a temporarily overloaded Anthropic API (retry).
-- **"The request body is not valid JSON: Input is a zero-length, empty document"** → this
-  means your server sent an empty request body to Anthropic. The most common cause is cURL's
-  automatic `Expect: 100-continue` behavior on large POST bodies (a base64-encoded image is
-  always large enough to trigger it), which some hosts' outbound proxies mishandle and silently
-  drop. This app already disables that behavior — if you still see this error after updating
-  to the latest version of `includes/functions.php`, use the **"Test Claude connection"**
-  button on the dashboard first: it sends a tiny text-only request with no image attached.
-  - If the tiny test **also** fails the same way, the problem isn't image-size-related at all —
-    double check your API key, and confirm your host allows outbound HTTPS to `api.anthropic.com`
-    (contact your host if unsure).
-  - If the tiny test **succeeds** but image uploads still fail, it's specific to larger request
-    bodies — this points to a host-level proxy/firewall limitation; contact your hosting
-    provider's support and mention outbound POST bodies over ~100KB are being truncated.
-  - Also check that you actually re-uploaded the updated file and that PHP's opcache (if
-    enabled) has picked up the change — restarting PHP from cPanel's "Select PHP Version" /
-    MultiPHP Manager, or waiting a minute, usually resolves stale-cache issues.
+- **"The request body is not valid JSON: ..." errors (empty document, or unexpected character)**
+  → these mean the request body was altered somewhere between your server and Anthropic. If
+  you've already tried the "Test Claude connection" button and it still fails on both cURL and
+  the streams fallback, that means two independent HTTP client implementations are hitting the
+  same problem — which points away from a library bug and toward something in your server's own
+  network path (a firewall, DLP/security appliance, or similar) interfering with the request.
+  To find out for certain, click **"Test raw HTTPS POST"** on the dashboard: it POSTs a small
+  JSON body to a public echo service (httpbin.org), completely unrelated to Anthropic, and
+  reports whether the body survives the round trip.
+  - If that test **also** shows the body corrupted or missing → this is a network-level issue
+    on your server affecting outbound HTTPS POST bodies in general, not anything specific to
+    this app or to Anthropic. Share that exact test result with your hosting provider's support
+    team — this is something only they can diagnose and fix from their infrastructure.
+  - If that test **succeeds** but Anthropic calls still fail → the issue is specific to
+    reaching `api.anthropic.com`; ask your host whether they block or inspect traffic to that
+    domain or IP range specifically.
+  - Every failed call also saves a redacted wire-level debug log (visible inline for the
+    connection test, or attached to the failed version's error message for image analysis) —
+    useful to include when contacting your host.
 
 ## Tested
 

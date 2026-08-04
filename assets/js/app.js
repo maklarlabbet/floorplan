@@ -25,6 +25,33 @@ $(function () {
     });
   });
 
+  $('#btn-test-echo').on('click', function () {
+    const $btn = $(this);
+    const $status = $('#connection-status');
+    $btn.prop('disabled', true).text('Testing…');
+    $status.removeClass('error').css('white-space', 'pre-wrap')
+      .text('Sending a small test POST to a public echo service (httpbin.org) — unrelated to Anthropic — to check whether request bodies survive the trip at all from this server…');
+
+    $.get('api/test_echo.php', function (res) {
+      $btn.prop('disabled', false).text('Test raw HTTPS POST');
+      const lines = [];
+      lines.push('Sent: ' + res.sent);
+      lines.push('');
+      lines.push('cURL: ' + (res.curl.ok ? (res.curl.matches ? '✓ echoed back correctly' : '✗ echoed but MISMATCHED — body corrupted in transit: "' + res.curl.echoed + '"') : '✗ ' + res.curl.error));
+      lines.push('Streams: ' + (res.streams.ok ? (res.streams.matches ? '✓ echoed back correctly' : '✗ echoed but MISMATCHED — body corrupted in transit: "' + res.streams.echoed + '"') : '✗ ' + res.streams.error));
+      lines.push('');
+      if ((res.curl.ok && res.curl.matches) || (res.streams.ok && res.streams.matches)) {
+        lines.push('→ At least one transport delivers POST bodies correctly to an unrelated site. If Claude API calls still fail, the issue is specific to reaching api.anthropic.com — worth asking your host if they block/inspect traffic to that domain specifically.');
+      } else {
+        lines.push('→ Neither transport delivered the body correctly to an unrelated site either. This points to a network-level issue on this server (firewall, proxy, or security appliance) affecting outbound HTTPS POST bodies in general — this is worth raising directly with your hosting provider\'s support team, with this exact result.');
+      }
+      $status.removeClass('error').css('white-space', 'pre-wrap').text(lines.join('\n'));
+    }, 'json').fail(function (xhr) {
+      $btn.prop('disabled', false).text('Test raw HTTPS POST');
+      $status.addClass('error').text('✗ Could not run the test: ' + xhr.statusText);
+    });
+  });
+
   function openModal() { $modal.prop('hidden', false); }
   function closeModal() { $modal.prop('hidden', true); $('#upload-status').text('').removeClass('error'); }
 

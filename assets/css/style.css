@@ -301,7 +301,9 @@ h1, h2, h3 {
   background: rgba(245,241,232,0.92);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   font-family: var(--font-data); font-size: 13px; color: var(--ink-soft); text-align: center; padding: 20px;
+  overflow-y: auto;
 }
+.loading-overlay p { white-space: pre-wrap; text-align: left; max-width: 90%; max-height: 80%; overflow-y: auto; }
 .loading-overlay[hidden] { display: none; }
 .spinner {
   width: 32px; height: 32px; border-radius: 50%;

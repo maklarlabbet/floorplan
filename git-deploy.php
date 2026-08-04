@@ -43,7 +43,7 @@ if ($code !== 0) {
 // Copy files to public_html
 $output = [];
 //exec("rsync -av --delete --exclude='.git' --exclude='.github' --exclude='.htaccess' --exclude='.user.ini' --exclude='php.ini' --exclude='.well-known' --exclude='git-deploy.php' $repo/ $target/ 2>&1", $output, $code);
-exec("rsync -av --exclude='.git' --exclude='.github' --exclude='.htaccess' --exclude='.user.ini' --exclude='php.ini' --exclude='.well-known' --exclude='git-deploy.php' $repo/ $target/ 2>&1", $output, $code);
+exec("rsync -av --exclude='.git' --exclude='.github' --exclude='.htaccess' --exclude='.user.ini' --exclude='php.ini' --exclude='.well-known' --exclude='git-deploy.php' --exclude='config.php' $repo/ $target/ 2>&1", $output, $code);
 
 echo implode("\n", $output);
 
