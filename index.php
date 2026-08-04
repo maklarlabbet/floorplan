@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/functions.php';
 require_login();
 
 $db = get_db();
@@ -50,7 +51,11 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       <?php foreach ($projects as $p): ?>
         <div class="project-card" data-id="<?= (int)$p['id'] ?>">
           <a class="project-card-link" href="editor.php?project_id=<?= (int)$p['id'] ?>">
-            <div class="project-card-thumb"><?php if ($p['thumb_path']): ?><img src="<?php echo htmlspecialchars(UPLOAD_URL_BASE . '/' . $p['thumb_path']); ?>" alt=""><?php else: ?>⌂<?php endif; ?></div>
+            <div class="project-card-thumb"><?php
+              if ($p['thumb_path']):
+                $thumb_rel = thumb_rel_path($p['thumb_path']);
+                $img_rel = is_file(UPLOAD_DIR . '/' . $thumb_rel) ? $thumb_rel : $p['thumb_path'];
+            ?><img src="<?php echo htmlspecialchars(UPLOAD_URL_BASE . '/' . $img_rel); ?>" alt=""><?php else: ?>⌂<?php endif; ?></div>
             <div class="project-card-body">
               <h3><?= htmlspecialchars($p['name']) ?></h3>
               <p><?= (int)$p['version_count'] ?> version<?= $p['version_count'] == 1 ? '' : 's' ?> · updated <?= date('M j, Y', strtotime($p['updated_at'])) ?></p>

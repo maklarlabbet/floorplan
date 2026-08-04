@@ -45,6 +45,7 @@ if (!move_uploaded_file($file['tmp_name'], $dest)) {
 }
 
 $rel_path = $project_id . '/' . $filename;
+create_thumbnail($dest, UPLOAD_DIR . '/' . thumb_rel_path($rel_path), 480);
 $version_number = 1;
 
 $stmt = $db->prepare('INSERT INTO floorplan_versions (project_id, version_number, source_type, status, image_path) VALUES (?, ?, "upload", "processing", ?)');

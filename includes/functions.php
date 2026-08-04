@@ -342,3 +342,71 @@ function user_owns_project($project_id, $user_id) {
     $stmt->execute();
     return $stmt->get_result()->fetch_assoc() !== null;
 }
+
+function thumb_rel_path($original_rel_path) {
+    $dir = dirname($original_rel_path);
+    $base = basename($original_rel_path);
+    return ($dir !== '.' ? $dir . '/' : '') . 'thumb_' . $base;
+}
+
+/**
+ * Resizes $source_path down to fit within $max_dim x $max_dim (preserving aspect ratio,
+ * never upscaling) and writes the result to $dest_path in the same format as the source.
+ * Returns false (leaving $dest_path unwritten) if GD or the source format isn't supported,
+ * so callers can fall back to the original image.
+ */
+function create_thumbnail($source_path, $dest_path, $max_dim = 480) {
+    if (!function_exists('imagecreatetruecolor')) return false;
+
+    $info = @getimagesize($source_path);
+    if (!$info) return false;
+    [$width, $height, $type] = $info;
+
+    if ($width <= $max_dim && $height <= $max_dim) {
+        return copy($source_path, $dest_path);
+    }
+
+    $scale = min($max_dim / $width, $max_dim / $height);
+    $new_width = max(1, (int)round($width * $scale));
+    $new_height = max(1, (int)round($height * $scale));
+
+    switch ($type) {
+        case IMAGETYPE_JPEG:
+            $src = imagecreatefromjpeg($source_path);
+            break;
+        case IMAGETYPE_PNG:
+            $src = imagecreatefrompng($source_path);
+            break;
+        case IMAGETYPE_WEBP:
+            if (!function_exists('imagecreatefromwebp')) return false;
+            $src = imagecreatefromwebp($source_path);
+            break;
+        default:
+            return false;
+    }
+    if (!$src) return false;
+
+    $thumb = imagecreatetruecolor($new_width, $new_height);
+    if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
+        imagealphablending($thumb, false);
+        imagesavealpha($thumb, true);
+    }
+    imagecopyresampled($thumb, $src, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+
+    switch ($type) {
+        case IMAGETYPE_JPEG:
+            $ok = imagejpeg($thumb, $dest_path, 85);
+            break;
+        case IMAGETYPE_PNG:
+            $ok = imagepng($thumb, $dest_path);
+            break;
+        case IMAGETYPE_WEBP:
+            $ok = function_exists('imagewebp') ? imagewebp($thumb, $dest_path, 85) : false;
+            break;
+        default:
+            $ok = false;
+    }
+    imagedestroy($src);
+    imagedestroy($thumb);
+    return $ok;
+}
