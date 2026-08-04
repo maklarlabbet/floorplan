@@ -6,7 +6,10 @@ $db = get_db();
 $uid = current_user_id();
 
 $stmt = $db->prepare('SELECT p.id, p.name, p.updated_at,
-                        (SELECT COUNT(*) FROM floorplan_versions v WHERE v.project_id = p.id) AS version_count
+                        (SELECT COUNT(*) FROM floorplan_versions v WHERE v.project_id = p.id) AS version_count,
+                        (SELECT v.image_path FROM floorplan_versions v
+                          WHERE v.project_id = p.id AND v.image_path IS NOT NULL
+                          ORDER BY v.version_number ASC LIMIT 1) AS thumb_path
                        FROM projects p WHERE p.user_id = ? ORDER BY p.updated_at DESC');
 $stmt->bind_param('i', $uid);
 $stmt->execute();
@@ -47,7 +50,7 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       <?php foreach ($projects as $p): ?>
         <div class="project-card" data-id="<?= (int)$p['id'] ?>">
           <a class="project-card-link" href="editor.php?project_id=<?= (int)$p['id'] ?>">
-            <div class="project-card-thumb">⌂</div>
+            <div class="project-card-thumb"><?php if ($p['thumb_path']): ?><img src="<?php echo htmlspecialchars(UPLOAD_URL_BASE . '/' . $p['thumb_path']); ?>" alt=""><?php else: ?>⌂<?php endif; ?></div>
             <div class="project-card-body">
               <h3><?= htmlspecialchars($p['name']) ?></h3>
               <p><?= (int)$p['version_count'] ?> version<?= $p['version_count'] == 1 ? '' : 's' ?> · updated <?= date('M j, Y', strtotime($p['updated_at'])) ?></p>

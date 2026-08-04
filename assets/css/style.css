@@ -186,6 +186,10 @@ h1, h2, h3 {
   display: flex; align-items: center; justify-content: center;
   font-size: 34px; color: var(--blueprint);
   border-bottom: 1.5px solid var(--border);
+  overflow: hidden;
+}
+.project-card-thumb img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 .project-card-body { padding: 12px 14px; }
 .project-card-body h3 { font-size: 15px; margin-bottom: 4px; }
