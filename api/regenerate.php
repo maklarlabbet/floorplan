@@ -49,7 +49,7 @@ if ($summary === '') $summary = 'No specific marks provided.';
 $result = claude_regenerate($base['floorplan_json'], $summary);
 
 if (!$result['ok']) {
-    json_response(['ok' => false, 'error' => $result['error']], 502);
+    json_response(['ok' => false, 'error' => $result['error'], 'debug' => $result['debug'] ?? null, 'raw' => $result['raw'] ?? null], 502);
 }
 
 $new_version_number = next_version_number($project_id);

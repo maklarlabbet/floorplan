@@ -94,8 +94,22 @@ function claude_regenerate($current_json, $annotation_summary) {
  * and parses a floorplan-JSON response) and by the connection-test diagnostic.
  * Returns ['ok'=>bool, 'text'=>string|null, 'error'=>string|null, 'debug'=>string|null]
  */
+/**
+ * Config values like API keys are often pasted from a browser/clipboard and can pick up an
+ * invisible trailing newline or stray whitespace without the person noticing — which, if left
+ * in an HTTP header value, corrupts the request at the protocol level (a stray \r or \n
+ * prematurely terminates the header line). This happened in practice and was very hard to
+ * diagnose from the outside since curl still reports the request as "fully sent" — the
+ * corruption is invisible until you look at the exact bytes. Always read config values that
+ * end up in headers through this helper rather than the raw constant.
+ */
+function clean_config_value($value) {
+    return is_string($value) ? trim($value) : $value;
+}
+
 function call_claude_raw($body) {
-    if (!defined('ANTHROPIC_API_KEY') || ANTHROPIC_API_KEY === '' || strpos(ANTHROPIC_API_KEY, 'sk-ant-xxxx') === 0) {
+    $api_key = defined('ANTHROPIC_API_KEY') ? clean_config_value(ANTHROPIC_API_KEY) : '';
+    if ($api_key === '' || strpos($api_key, 'sk-ant-xxxx') === 0) {
         return ['ok' => false, 'error' => 'Anthropic API key is not configured. Edit config/config.php.'];
     }
 
@@ -104,7 +118,7 @@ function call_claude_raw($body) {
         return ['ok' => false, 'error' => 'Failed to encode request as JSON: ' . json_last_error_msg()];
     }
 
-    $result = call_claude_via_curl($payload);
+    $result = call_claude_via_curl($payload, $api_key);
 
     // If curl reports the exact "body arrived empty/malformed" symptom, it's most likely a
     // quirk of curl/libcurl on this specific host talking to Anthropic's Cloudflare-fronted
@@ -112,7 +126,7 @@ function call_claude_raw($body) {
     // Retry once using PHP's stream-based HTTP client, a completely different implementation
     // that sidesteps libcurl entirely, before giving up.
     if (!$result['ok'] && preg_match('/not valid JSON|zero-length|empty document|unexpected character/i', $result['error'])) {
-        $fallback = call_claude_via_streams($payload);
+        $fallback = call_claude_via_streams($payload, $api_key);
         if ($fallback['ok']) {
             return $fallback;
         }
@@ -129,12 +143,12 @@ function call_claude_raw($body) {
 /**
  * Sends the request via cURL. Captures a redacted wire-level verbose log for diagnostics.
  */
-function call_claude_via_curl($payload) {
+function call_claude_via_curl($payload, $api_key) {
     $payload_len = strlen($payload);
     $verbose = fopen('php://temp', 'w+');
 
     $ch = curl_init(ANTHROPIC_API_URL);
-    curl_setopt_array($ch, [
+    $curl_opts = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         // Deliberately NOT forcing CURLOPT_HTTP_VERSION_1_1 here — Anthropic's API sits behind
@@ -145,7 +159,7 @@ function call_claude_via_curl($payload) {
         // Letting curl auto-negotiate the protocol via ALPN is the safer default.
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'x-api-key: ' . ANTHROPIC_API_KEY,
+            'x-api-key: ' . $api_key,
             'anthropic-version: 2023-06-01',
             // Without this, cURL automatically adds "Expect: 100-continue" for POST bodies
             // over ~1KB. Some hosting providers' outbound proxies/firewalls mishandle that.
@@ -160,7 +174,14 @@ function call_claude_via_curl($payload) {
         CURLOPT_FORBID_REUSE => true,
         CURLOPT_VERBOSE => true,
         CURLOPT_STDERR => $verbose,
-    ]);
+    ];
+    if (defined('OUTBOUND_PROXY') && clean_config_value(OUTBOUND_PROXY) !== '') {
+        $curl_opts[CURLOPT_PROXY] = clean_config_value(OUTBOUND_PROXY);
+        if (defined('OUTBOUND_PROXY_AUTH') && clean_config_value(OUTBOUND_PROXY_AUTH) !== '') {
+            $curl_opts[CURLOPT_PROXYUSERPWD] = clean_config_value(OUTBOUND_PROXY_AUTH);
+        }
+    }
+    curl_setopt_array($ch, $curl_opts);
     $response = curl_exec($ch);
     $curl_err = curl_error($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -170,7 +191,7 @@ function call_claude_via_curl($payload) {
     $verbose_log = stream_get_contents($verbose);
     fclose($verbose);
     // Redact the API key in case any of this ever surfaces in logs or error output.
-    $verbose_log = str_replace(ANTHROPIC_API_KEY, '[REDACTED]', $verbose_log);
+    $verbose_log = str_replace($api_key, '[REDACTED]', $verbose_log);
     $verbose_snippet = substr($verbose_log, 0, 1500);
 
     if ($response === false) {
@@ -184,7 +205,7 @@ function call_claude_via_curl($payload) {
         return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (we sent ' . $payload_len . ' bytes via cURL)', 'debug' => $verbose_snippet];
     }
 
-    return ['ok' => true, 'text' => extract_claude_text($decoded)];
+    return ['ok' => true, 'text' => extract_claude_text($decoded), 'stop_reason' => $decoded['stop_reason'] ?? null];
 }
 
 /**
@@ -192,17 +213,25 @@ function call_claude_via_curl($payload) {
  * Used only as a fallback when cURL specifically reports a corrupted/empty body, to rule out
  * a libcurl-vs-host quirk.
  */
-function call_claude_via_streams($payload) {
+function call_claude_via_streams($payload, $api_key) {
+    $http_context = [
+        'method' => 'POST',
+        'header' => "Content-Type: application/json\r\n"
+            . "x-api-key: " . $api_key . "\r\n"
+            . "anthropic-version: 2023-06-01\r\n",
+        'content' => $payload,
+        'timeout' => 120,
+        'ignore_errors' => true, // so we still get the response body on 4xx/5xx
+    ];
+    if (defined('OUTBOUND_PROXY') && clean_config_value(OUTBOUND_PROXY) !== '') {
+        $http_context['proxy'] = 'tcp://' . clean_config_value(OUTBOUND_PROXY);
+        $http_context['request_fulluri'] = true;
+        if (defined('OUTBOUND_PROXY_AUTH') && clean_config_value(OUTBOUND_PROXY_AUTH) !== '') {
+            $http_context['header'] .= "Proxy-Authorization: Basic " . base64_encode(clean_config_value(OUTBOUND_PROXY_AUTH)) . "\r\n";
+        }
+    }
     $context = stream_context_create([
-        'http' => [
-            'method' => 'POST',
-            'header' => "Content-Type: application/json\r\n"
-                . "x-api-key: " . ANTHROPIC_API_KEY . "\r\n"
-                . "anthropic-version: 2023-06-01\r\n",
-            'content' => $payload,
-            'timeout' => 120,
-            'ignore_errors' => true, // so we still get the response body on 4xx/5xx
-        ],
+        'http' => $http_context,
         'ssl' => [
             'verify_peer' => true,
             'verify_peer_name' => true,
@@ -228,7 +257,7 @@ function call_claude_via_streams($payload) {
         return ['ok' => false, 'error' => 'Claude API error: ' . $msg . ' (sent via streams fallback)'];
     }
 
-    return ['ok' => true, 'text' => extract_claude_text($decoded)];
+    return ['ok' => true, 'text' => extract_claude_text($decoded), 'stop_reason' => $decoded['stop_reason'] ?? null];
 }
 
 function extract_claude_text($decoded) {
@@ -253,12 +282,36 @@ function call_claude($body) {
         return $raw;
     }
 
-    $clean = trim($raw['text']);
-    $clean = preg_replace('/^```(json)?/i', '', $clean);
-    $clean = preg_replace('/```$/', '', $clean);
-    $clean = trim($clean);
+    if (($raw['stop_reason'] ?? null) === 'max_tokens') {
+        return [
+            'ok' => false,
+            'error' => 'Claude\'s response was cut off before it finished (hit the max_tokens limit) — the floorplan may be too complex for the current token budget. Try a simpler image, fewer annotations at once, or increase max_tokens in claude_analyze_image()/claude_regenerate() in includes/functions.php.',
+            'raw' => $raw['text'],
+        ];
+    }
 
-    $parsed = json_decode($clean, true);
+    $text = trim($raw['text']);
+
+    // Strip a leading/trailing markdown code fence if present (```json ... ``` or ``` ... ```),
+    // even if there's other whitespace/text immediately around the fence markers themselves.
+    $text = preg_replace('/^```(?:json)?\s*/i', '', $text);
+    $text = preg_replace('/\s*```\s*$/', '', $text);
+    $text = trim($text);
+
+    // More robust than assuming the whole trimmed string is valid JSON: Claude sometimes adds
+    // a sentence of preamble or a closing remark despite instructions not to. Find the first
+    // "{" and the last "}" and try parsing just that slice — this survives extra text around
+    // a single well-formed top-level JSON object, which is what our schema always is.
+    $parsed = json_decode($text, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
+        $first_brace = strpos($text, '{');
+        $last_brace = strrpos($text, '}');
+        if ($first_brace !== false && $last_brace !== false && $last_brace > $first_brace) {
+            $candidate = substr($text, $first_brace, $last_brace - $first_brace + 1);
+            $parsed = json_decode($candidate, true);
+        }
+    }
+
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsed)) {
         return ['ok' => false, 'error' => 'Claude did not return valid JSON.', 'raw' => $raw['text']];
     }

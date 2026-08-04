@@ -3,6 +3,13 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_login_api();
 
+// Give this diagnostic a bit more room than PHP's default 30s execution limit, in case the
+// host's outbound network is fully blocking rather than just corrupting requests (in which
+// case both attempts below will need to hit their own connect timeouts before this returns).
+if (function_exists('set_time_limit')) {
+    @set_time_limit(45);
+}
+
 /**
  * This test has nothing to do with Anthropic. It POSTs a small JSON payload to a public
  * echo service (httpbin.org) and checks whether what comes back matches exactly what was
@@ -17,13 +24,21 @@ $test_payload = json_encode(['diagnostic' => 'floorplan-studio-echo-test', 'ts' 
 
 function echo_test_via_curl($payload) {
     $ch = curl_init('https://httpbin.org/post');
-    curl_setopt_array($ch, [
+    $opts = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Expect:'],
         CURLOPT_POSTFIELDS => $payload,
-        CURLOPT_TIMEOUT => 30,
-    ]);
+        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_TIMEOUT => 15,
+    ];
+    if (defined('OUTBOUND_PROXY') && OUTBOUND_PROXY !== '') {
+        $opts[CURLOPT_PROXY] = OUTBOUND_PROXY;
+        if (defined('OUTBOUND_PROXY_AUTH') && OUTBOUND_PROXY_AUTH !== '') {
+            $opts[CURLOPT_PROXYUSERPWD] = OUTBOUND_PROXY_AUTH;
+        }
+    }
+    curl_setopt_array($ch, $opts);
     $response = curl_exec($ch);
     $err = curl_error($ch);
     curl_close($ch);
@@ -36,15 +51,21 @@ function echo_test_via_curl($payload) {
 }
 
 function echo_test_via_streams($payload) {
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'POST',
-            'header' => "Content-Type: application/json\r\n",
-            'content' => $payload,
-            'timeout' => 30,
-            'ignore_errors' => true,
-        ],
-    ]);
+    $http_context = [
+        'method' => 'POST',
+        'header' => "Content-Type: application/json\r\n",
+        'content' => $payload,
+        'timeout' => 15,
+        'ignore_errors' => true,
+    ];
+    if (defined('OUTBOUND_PROXY') && OUTBOUND_PROXY !== '') {
+        $http_context['proxy'] = 'tcp://' . OUTBOUND_PROXY;
+        $http_context['request_fulluri'] = true;
+        if (defined('OUTBOUND_PROXY_AUTH') && OUTBOUND_PROXY_AUTH !== '') {
+            $http_context['header'] .= "Proxy-Authorization: Basic " . base64_encode(OUTBOUND_PROXY_AUTH) . "\r\n";
+        }
+    }
+    $context = stream_context_create(['http' => $http_context]);
     $response = @file_get_contents('https://httpbin.org/post', false, $context);
     if ($response === false) {
         $err = error_get_last();

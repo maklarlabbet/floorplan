@@ -37,10 +37,13 @@ if (!$result['ok']) {
     if (!empty($result['debug'])) {
         $stored_message .= "\n\n--- debug (curl verbose, redacted) ---\n" . $result['debug'];
     }
+    if (!empty($result['raw'])) {
+        $stored_message .= "\n\n--- Claude's raw response ---\n" . substr($result['raw'], 0, 4000);
+    }
     $stmt = $db->prepare('UPDATE floorplan_versions SET status = "failed", error_message = ? WHERE id = ?');
     $stmt->bind_param('si', $stored_message, $version_id);
     $stmt->execute();
-    json_response(['ok' => false, 'error' => $result['error'], 'debug' => $result['debug'] ?? null], 502);
+    json_response(['ok' => false, 'error' => $result['error'], 'debug' => $result['debug'] ?? null, 'raw' => $result['raw'] ?? null], 502);
 }
 
 $json_str = json_encode($result['json']);

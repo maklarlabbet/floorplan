@@ -65,6 +65,9 @@ define('DB_PASS', 'the-password-you-set');
 define('ANTHROPIC_API_KEY', 'sk-ant-...');
 ```
 
+You can leave `OUTBOUND_PROXY` blank unless your host specifically tells you it's required —
+see the troubleshooting section below if you run into connection errors.
+
 ### 5. Upload the files
 Upload the entire contents of this package to your desired directory on cPanel (e.g.
 `public_html/` for the domain root, or `public_html/floorplans/` for a subfolder) via
@@ -120,25 +123,35 @@ Go to your domain (or subfolder) in a browser. You'll land on the sign-in page �
 - **Upload succeeds but analysis fails** → check the error message shown; it's usually
   either the API key, a network/firewall block on outbound HTTPS from your host (rare on
   cPanel), or a temporarily overloaded Anthropic API (retry).
+- **"Claude did not return valid JSON"** → this means the API call itself succeeded (no
+  connectivity issue), but Claude's response text couldn't be parsed as the expected floorplan
+  JSON. The app extracts JSON robustly (it strips markdown code fences and finds the outermost
+  `{...}` even if Claude adds a sentence of commentary around it, despite being told not to),
+  and specifically detects and reports if the response was cut off by hitting the `max_tokens`
+  limit — but if the model's output was genuinely malformed, this error can still occur.
+  Click the failed version in the sidebar to see the full stored error, which now includes
+  Claude's actual raw response text — that will show you exactly what came back. If it looks
+  like the response was on the right track but got cut short, try increasing `max_tokens` in
+  `claude_analyze_image()` / `claude_regenerate()` in `includes/functions.php` (default 8000),
+  or try a simpler/smaller source image.
+
 - **"The request body is not valid JSON: ..." errors (empty document, or unexpected character)**
-  → these mean the request body was altered somewhere between your server and Anthropic. If
-  you've already tried the "Test Claude connection" button and it still fails on both cURL and
-  the streams fallback, that means two independent HTTP client implementations are hitting the
-  same problem — which points away from a library bug and toward something in your server's own
-  network path (a firewall, DLP/security appliance, or similar) interfering with the request.
-  To find out for certain, click **"Test raw HTTPS POST"** on the dashboard: it POSTs a small
-  JSON body to a public echo service (httpbin.org), completely unrelated to Anthropic, and
-  reports whether the body survives the round trip.
-  - If that test **also** shows the body corrupted or missing → this is a network-level issue
-    on your server affecting outbound HTTPS POST bodies in general, not anything specific to
-    this app or to Anthropic. Share that exact test result with your hosting provider's support
-    team — this is something only they can diagnose and fix from their infrastructure.
-  - If that test **succeeds** but Anthropic calls still fail → the issue is specific to
-    reaching `api.anthropic.com`; ask your host whether they block or inspect traffic to that
-    domain or IP range specifically.
-  - Every failed call also saves a redacted wire-level debug log (visible inline for the
-    connection test, or attached to the failed version's error message for image analysis) —
-    useful to include when contacting your host.
+  → in practice, this was ultimately traced to a stray trailing newline/whitespace character in
+  the `ANTHROPIC_API_KEY` value in `config/config.php` — easy to introduce invisibly when
+  copy-pasting a key from a browser, and devastating because it corrupts the `x-api-key` header
+  at the HTTP protocol level (a stray `\r` or `\n` prematurely ends the header line), while
+  still *looking* like a normal, fully-sent request from cURL's point of view. This app now
+  automatically trims whitespace from the API key (and the optional proxy settings) before
+  using them, so this specific mistake can't happen again even if you paste a key with extra
+  whitespace. If you ever see this error again:
+  1. Double-check `config/config.php` doesn't have obviously wrong values.
+  2. Click **"Test Claude connection"** on the dashboard for a quick, isolated check with a
+     redacted wire-level debug log.
+  3. Click **"Test raw HTTPS POST"** to rule out a network-level issue unrelated to Anthropic.
+  4. If both of those look fine but you're still stuck, request IDs from failed calls (visible
+     in Anthropic's response, e.g. `req_...`) can be given to Anthropic support directly — they
+     can see exactly what their backend received for a specific request, which settles
+     ambiguous cases faster than guessing from the client side.
 
 ## Tested
 
