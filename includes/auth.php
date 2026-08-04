@@ -5,6 +5,17 @@ function current_user_id() {
     return $_SESSION['user_id'] ?? null;
 }
 
+function current_username() {
+    $uid = current_user_id();
+    if (!$uid) return null;
+    $db = get_db();
+    $stmt = $db->prepare('SELECT username FROM users WHERE id = ?');
+    $stmt->bind_param('i', $uid);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    return $row['username'] ?? null;
+}
+
 function require_login() {
     if (!current_user_id()) {
         header('Location: login.php');

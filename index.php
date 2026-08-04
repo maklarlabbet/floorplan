@@ -26,7 +26,7 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 <main class="page">
   <div class="page-header">
     <div>
-      <p class="eyebrow">Title Block</p>
+      <p class="eyebrow">Hi, <?php echo htmlspecialchars(current_username()); ?></p>
       <h1>Your Projects</h1>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
