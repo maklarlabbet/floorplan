@@ -65,9 +65,6 @@ define('DB_PASS', 'the-password-you-set');
 define('ANTHROPIC_API_KEY', 'sk-ant-...');
 ```
 
-You can leave `OUTBOUND_PROXY` blank unless your host specifically tells you it's required â€”
-see the troubleshooting section below if you run into connection errors.
-
 ### 5. Upload the files
 Upload the entire contents of this package to your desired directory on cPanel (e.g.
 `public_html/` for the domain root, or `public_html/floorplans/` for a subfolder) via
@@ -141,9 +138,9 @@ Go to your domain (or subfolder) in a browser. You'll land on the sign-in page â
   copy-pasting a key from a browser, and devastating because it corrupts the `x-api-key` header
   at the HTTP protocol level (a stray `\r` or `\n` prematurely ends the header line), while
   still *looking* like a normal, fully-sent request from cURL's point of view. This app now
-  automatically trims whitespace from the API key (and the optional proxy settings) before
-  using them, so this specific mistake can't happen again even if you paste a key with extra
-  whitespace. If you ever see this error again:
+  automatically trims whitespace from the API key before using it, so this specific mistake
+  can't happen again even if you paste a key with extra whitespace. If you ever see this
+  error again:
   1. Double-check `config/config.php` doesn't have obviously wrong values.
   2. Click **"Test Claude connection"** on the dashboard for a quick, isolated check with a
      redacted wire-level debug log.
