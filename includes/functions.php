@@ -18,6 +18,7 @@ Return ONLY a single valid JSON object (no markdown fences, no commentary) with 
   "doors": [ { "id": "d1", "x": 0, "y": 0, "width": 30, "orientation": "horizontal", "swing": "in" } ],
   "windows": [ { "id": "wn1", "x": 0, "y": 0, "width": 40, "orientation": "horizontal" } ],
   "dimensions": [ { "from": [0,0], "to": [0,0], "label": "12 ft" } ],
+  "stairs": [ { "id": "s1", "x": 0, "y": 0, "width": 0, "height": 0, "orientation": "horizontal", "direction": "up", "steps": 12 } ],
   "notes": [ { "x": 0, "y": 0, "text": "free text note" } ]
 }
 
@@ -26,9 +27,13 @@ Rules:
 - Keep coordinates internally consistent (walls form closed room boundaries where the drawing implies enclosed rooms).
 - Use walls.thickness in canvas units (typically 4-10).
 - Room polygons should be closed shapes made of the same coordinates as adjoining walls, so rooms and walls line up visually.
+- "stairs": "x","y" is the top-left corner of the staircase's bounding box; "width"/"height" are its footprint; "orientation" is "horizontal" if the flight of steps runs left-right or "vertical" if it runs up-down the page; "steps" is the approximate number of treads. "direction" tells which corner of the box is the higher floor: "up" means ascending from the ("x","y") corner toward the opposite ("x"+"width","y"+"height") corner; "down" means the reverse, ascending from the opposite corner toward ("x","y").
+- Staircases: if the source shows a staircase — whether drawn as an actual stair symbol (parallel tread lines) or only labeled with text like "Stairs", "Staircase", or "Stairway" — always represent it as an entry in "stairs" with its bounding box, never as a room name or a "notes" entry. Do not put the word "Stairs"/"Staircase" anywhere in a room "name" or in "notes".
+- Multi-flight staircases (turning 90°/180° at a landing, e.g. L-shaped or U-shaped): represent as MULTIPLE entries in "stairs" — one entry per straight flight, each with its own bounding box, "orientation", and "direction" so each flight's arrow points the right way — plus one entry per landing (the flat turning pad between flights) with "steps": 0, which renders as a plain outline with no tread lines. A spiral/curved staircase should still be approximated this way (straight flights + landings); do not invent a curved shape.
 - Include a dimension line for at least the overall footprint width and height, and for any room whose size the source clearly implies.
 - If the source image is a rough hand sketch, infer sensible right angles and straightened walls — the goal is a clean, professional floorplan, not a literal trace of wobbly lines.
 - If information is ambiguous or missing (e.g. a room label is unreadable), make a reasonable assumption and note it in "notes".
+- Room naming: if the source shows a legible label/text in or near a room, use that exact text verbatim as "name" — do not modify, translate, or append anything to it (e.g. a room labeled "G" must have "name": "G", never "G (Closet 1)"). If a room has no legible label at all, set "name" to an empty string rather than inventing a generic placeholder like "Closet 1" or "Room 1".
 - Output nothing except the JSON object.
 SCHEMA;
 }

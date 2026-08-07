@@ -18,6 +18,16 @@ function renderFloorplan(svgEl, data) {
     return node;
   };
 
+  // Arrowhead marker used by the stairs "up"/"down" direction indicator
+  const defs = el('defs', {});
+  const marker = el('marker', {
+    id: 'fp-arrowhead', viewBox: '0 0 10 10', refX: '8', refY: '5',
+    markerWidth: '6', markerHeight: '6', orient: 'auto-start-reverse'
+  });
+  marker.appendChild(el('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'fp-stairs-arrow-head' }));
+  defs.appendChild(marker);
+  svgEl.appendChild(defs);
+
   // Rooms (fill) drawn first, underneath walls
   (data.rooms || []).forEach(room => {
     if (!room.polygon || room.polygon.length < 3) return;
@@ -63,6 +73,40 @@ function renderFloorplan(svgEl, data) {
     }
   });
 
+  // Stairs: bounding box + evenly spaced tread lines across the run + a centerline arrow
+  // pointing toward the higher floor (the standard architectural stair symbol).
+  (data.stairs || []).forEach(stair => {
+    const x = stair.x || 0, y = stair.y || 0;
+    const width = stair.width || 0, height = stair.height || 0;
+    if (!width || !height) return;
+    svgEl.appendChild(el('rect', { x, y, width, height, class: 'fp-stairs' }));
+
+    // A landing (steps: 0) between flights of a turning staircase is a bare pad —
+    // no tread lines, no direction arrow.
+    if (!stair.steps) return;
+
+    const vertical = stair.orientation === 'vertical';
+    const steps = Math.max(2, stair.steps);
+    const up = stair.direction !== 'down';
+
+    const runLength = vertical ? height : width;
+    for (let i = 1; i < steps; i++) {
+      const pos = (i / steps) * runLength;
+      const line = vertical
+        ? { x1: x, y1: y + pos, x2: x + width, y2: y + pos }
+        : { x1: x + pos, y1: y, x2: x + pos, y2: y + height };
+      svgEl.appendChild(el('line', { ...line, class: 'fp-stairs-tread' }));
+    }
+
+    const midCross = vertical ? x + width / 2 : y + height / 2;
+    const start = up ? runLength * 0.15 : runLength * 0.85;
+    const end = up ? runLength * 0.85 : runLength * 0.15;
+    const arrowLine = vertical
+      ? { x1: midCross, y1: y + start, x2: midCross, y2: y + end }
+      : { x1: x + start, y1: midCross, x2: x + end, y2: midCross };
+    svgEl.appendChild(el('line', { ...arrowLine, class: 'fp-stairs-arrow', 'marker-end': 'url(#fp-arrowhead)' }));
+  });
+
   // Dimension lines
   (data.dimensions || []).forEach(dim => {
     if (!dim.from || !dim.to) return;
@@ -98,6 +142,10 @@ function serializeSvgForDownload(svgEl) {
     .fp-dim-label{font-family:monospace;font-size:10px;fill:#4a5a68;text-anchor:middle}
     .fp-note-marker{fill:#e85d2f}
     .fp-note-text{font-family:sans-serif;font-size:11px;fill:#1d2b3a}
+    .fp-stairs{fill:none;stroke:#1d2b3a;stroke-width:1}
+    .fp-stairs-tread{stroke:#1d2b3a;stroke-width:1}
+    .fp-stairs-arrow{stroke:#1d2b3a;stroke-width:1.4}
+    .fp-stairs-arrow-head{fill:#1d2b3a}
   `;
   clone.insertBefore(style, clone.firstChild);
   return new XMLSerializer().serializeToString(clone);

@@ -337,6 +337,10 @@ h1, h2, h3 {
 .fp-dim-label { font-family: var(--font-data); font-size: 10px; fill: var(--ink-soft); text-anchor: middle; }
 .fp-note-marker { fill: var(--accent); }
 .fp-note-text { font-family: var(--font-body); font-size: 11px; fill: var(--ink); }
+.fp-stairs { fill: none; stroke: var(--ink); stroke-width: 1; }
+.fp-stairs-tread { stroke: var(--ink); stroke-width: 1; }
+.fp-stairs-arrow { stroke: var(--ink); stroke-width: 1.4; }
+.fp-stairs-arrow-head { fill: var(--ink); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 800px) {
