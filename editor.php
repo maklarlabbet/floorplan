@@ -58,6 +58,7 @@ $project = $stmt->get_result()->fetch_assoc();
       <div class="tool-group">
         <button class="tool-btn active" data-tool="pen" title="Draw / mark changes">✎ Pen</button>
         <button class="tool-btn" data-tool="note" title="Add a text note">💬 Note</button>
+        <button class="tool-btn" data-tool="eraser" title="Click a wall/door/window/stairs/room to remove it">🧹 Eraser</button>
         <button class="tool-btn" data-tool="pan" title="Pan / select">🖐 Select</button>
       </div>
       <div class="tool-group">
@@ -71,6 +72,7 @@ $project = $stmt->get_result()->fetch_assoc();
       </div>
       <div class="tool-group tool-group-right">
         <button class="btn btn-ghost" id="btn-notes">Notes</button>
+        <button class="btn btn-ghost" id="btn-save-edits" hidden>Save edits</button>
         <button class="btn btn-ghost" id="btn-download">Download SVG</button>
         <button class="btn btn-primary" id="btn-regenerate">Apply changes with Claude</button>
       </div>

@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS floorplan_versions (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   project_id INT UNSIGNED NOT NULL,
   version_number INT UNSIGNED NOT NULL,
-  source_type ENUM('upload','ai_generated') NOT NULL,
+  source_type ENUM('upload','ai_generated','manual_edit') NOT NULL,
   status ENUM('pending','processing','ready','failed') NOT NULL DEFAULT 'pending',
   image_path VARCHAR(255) DEFAULT NULL,       -- original uploaded image, if any
   floorplan_json LONGTEXT DEFAULT NULL,       -- structured vector floorplan data

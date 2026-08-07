@@ -13,6 +13,7 @@ const DrawTool = (function () {
   let marks = []; // { type: 'stroke', points: [{x,y}], color } | { type: 'note', x, y, text }
   let canvasDataW = 1000, canvasDataH = 700;
   let onNoteRequested = null;
+  let onErase = null;
 
   function toDataCoords(evt) {
     const rect = canvas.getBoundingClientRect();
@@ -69,6 +70,9 @@ const DrawTool = (function () {
     } else if (tool === 'note') {
       const pos = toDataCoords(evt);
       if (onNoteRequested) onNoteRequested(pos, evt);
+    } else if (tool === 'eraser') {
+      const pos = toDataCoords(evt);
+      if (onErase) onErase(pos);
     }
   }
 
@@ -103,11 +107,12 @@ const DrawTool = (function () {
   }
 
   return {
-    init(canvasEl, dataW, dataH, noteCallback) {
+    init(canvasEl, dataW, dataH, noteCallback, eraseCallback) {
       canvas = canvasEl;
       ctx = canvas.getContext('2d');
       canvasDataW = dataW; canvasDataH = dataH;
       onNoteRequested = noteCallback;
+      onErase = eraseCallback;
 
       canvas.addEventListener('mousedown', handleDown);
       canvas.addEventListener('mousemove', handleMove);
@@ -122,6 +127,7 @@ const DrawTool = (function () {
     },
     setTool(t) { tool = t; },
     setColor(c) { color = c; },
+    setCanvasSize(w, h) { canvasDataW = w || 1000; canvasDataH = h || 700; },
     addNote(pos, text) {
       marks.push({ type: 'note', x: pos.x, y: pos.y, text });
       redraw();

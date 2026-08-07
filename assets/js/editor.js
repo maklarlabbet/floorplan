@@ -5,6 +5,80 @@ $(function () {
   let versions = [];
   let activeVersion = null;
   let pendingNotePos = null;
+  let hasPendingEdits = false;
+
+  function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  function pointInPolygon(px, py, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i], [xj, yj] = polygon[j];
+      if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  // Checks the smallest/most specific elements first so a click near a door or wall
+  // isn't swallowed by the (usually much larger) room polygon behind it.
+  function findFloorplanHit(floorplan, pt) {
+    const TOL = 10;
+    for (const d of floorplan.doors || []) {
+      if (Math.hypot(pt.x - d.x, pt.y - d.y) <= (d.width || 30) / 2 + TOL) return { type: 'doors', id: d.id };
+    }
+    for (const w of floorplan.windows || []) {
+      if (Math.hypot(pt.x - w.x, pt.y - w.y) <= (w.width || 40) / 2 + TOL) return { type: 'windows', id: w.id };
+    }
+    for (const s of floorplan.stairs || []) {
+      if (pt.x >= s.x - TOL && pt.x <= s.x + (s.width || 0) + TOL && pt.y >= s.y - TOL && pt.y <= s.y + (s.height || 0) + TOL) {
+        return { type: 'stairs', id: s.id };
+      }
+    }
+    for (const w of floorplan.walls || []) {
+      if (pointToSegmentDistance(pt.x, pt.y, w.x1, w.y1, w.x2, w.y2) <= (w.thickness || 6) / 2 + TOL) return { type: 'walls', id: w.id };
+    }
+    for (const r of floorplan.rooms || []) {
+      if (r.polygon && r.polygon.length >= 3 && pointInPolygon(pt.x, pt.y, r.polygon)) return { type: 'rooms', id: r.id };
+    }
+    return null;
+  }
+
+  function eraseAt(pos) {
+    if (!activeVersion || !activeVersion.floorplan) return;
+    const hit = findFloorplanHit(activeVersion.floorplan, pos);
+    if (!hit) return;
+    const arr = activeVersion.floorplan[hit.type];
+    const idx = arr.findIndex(item => item.id === hit.id);
+    if (idx === -1) return;
+    arr.splice(idx, 1);
+    renderFloorplan(svg, activeVersion.floorplan);
+    hasPendingEdits = true;
+    $('#btn-save-edits').prop('hidden', false);
+  }
+
+  function saveEdits(onSaved) {
+    $.ajax({
+      url: 'api/save_edit.php',
+      method: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({ project_id: projectId, base_version_id: activeVersion.id, floorplan: activeVersion.floorplan }),
+      dataType: 'json',
+      success: function (res) {
+        if (!res.ok) { alert('Could not save edits: ' + res.error); return; }
+        hasPendingEdits = false;
+        $('#btn-save-edits').prop('hidden', true);
+        if (onSaved) onSaved(res.version_id);
+      },
+      error: function (xhr) {
+        alert('Could not save edits: ' + (xhr.responseJSON?.error || xhr.statusText));
+      }
+    });
+  }
 
   function showLoading(text) {
     $('#loading-text').text(text || 'Claude is drafting your floorplan…');
@@ -35,8 +109,8 @@ $(function () {
   function renderVersionList() {
     const $list = $('#version-list').empty();
     versions.forEach(v => {
-      const badgeClass = v.status === 'failed' ? 'failed' : (v.source_type === 'ai_generated' ? 'ai' : '');
-      const badgeText = v.status === 'failed' ? 'failed' : (v.source_type === 'ai_generated' ? 'AI edit' : 'upload');
+      const badgeClass = v.status === 'failed' ? 'failed' : (v.source_type === 'ai_generated' ? 'ai' : (v.source_type === 'manual_edit' ? 'edited' : ''));
+      const badgeText = v.status === 'failed' ? 'failed' : (v.source_type === 'ai_generated' ? 'AI edit' : (v.source_type === 'manual_edit' ? 'edited' : 'upload'));
       const $item = $('<div class="version-item">')
         .attr('data-id', v.id)
         .toggleClass('active', activeVersion && activeVersion.id === v.id)
@@ -51,6 +125,8 @@ $(function () {
     const v = versions.find(x => x.id === versionId);
     if (!v) return;
     activeVersion = v;
+    hasPendingEdits = false;
+    $('#btn-save-edits').prop('hidden', true);
     renderVersionList();
     DrawTool.clear();
     if (v.status === 'processing') {
@@ -65,8 +141,10 @@ $(function () {
     }
     if (v.floorplan) {
       $('#empty-overlay').prop('hidden', true);
+      DrawTool.setCanvasSize(v.floorplan.canvas && v.floorplan.canvas.width, v.floorplan.canvas && v.floorplan.canvas.height);
       renderFloorplan(svg, v.floorplan);
     } else {
+      DrawTool.setCanvasSize(1000, 700);
       renderFloorplan(svg, null);
       $('#empty-overlay').prop('hidden', false).find('p').text('No floorplan data yet for this version.');
     }
@@ -133,30 +211,41 @@ $(function () {
     URL.revokeObjectURL(url);
   });
 
+  $('#btn-save-edits').on('click', () => saveEdits(() => loadProject()));
+
   $('#btn-regenerate').on('click', function () {
     if (!activeVersion) return;
     const marks = DrawTool.getMarks();
-    if (marks.length === 0) {
-      alert('Draw a change or add a note first, then click Apply.');
+    if (marks.length === 0 && !hasPendingEdits) {
+      alert('Draw a change, add a note, or erase something first, then click Apply.');
       return;
     }
-    showLoading('Claude is applying your changes…');
-    $.ajax({
-      url: 'api/regenerate.php',
-      method: 'POST',
-      contentType: 'application/json',
-      data: JSON.stringify({ project_id: projectId, base_version_id: activeVersion.id, annotations: marks }),
-      dataType: 'json',
-      success: function (res) {
-        hideLoading();
-        if (!res.ok) { alert('Could not apply changes: ' + res.error); return; }
-        loadProject();
-      },
-      error: function (xhr) {
-        hideLoading();
-        alert('Could not apply changes: ' + (xhr.responseJSON?.error || xhr.statusText));
-      }
-    });
+
+    function callRegenerate(baseVersionId) {
+      if (marks.length === 0) { loadProject(); return; } // erasures already saved, nothing more for Claude to do
+      showLoading('Claude is applying your changes…');
+      $.ajax({
+        url: 'api/regenerate.php',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ project_id: projectId, base_version_id: baseVersionId, annotations: marks }),
+        dataType: 'json',
+        success: function (res) {
+          hideLoading();
+          if (!res.ok) { alert('Could not apply changes: ' + res.error); return; }
+          loadProject();
+        },
+        error: function (xhr) {
+          hideLoading();
+          alert('Could not apply changes: ' + (xhr.responseJSON?.error || xhr.statusText));
+        }
+      });
+    }
+
+    // Erasures only live in the browser until saved — persist them first so Claude
+    // regenerates from the up-to-date floorplan, not the stale pre-erase version.
+    if (hasPendingEdits) saveEdits(callRegenerate);
+    else callRegenerate(activeVersion.id);
   });
 
   // ---- Note popup ----
@@ -175,6 +264,6 @@ $(function () {
     $('#note-popup').prop('hidden', true);
   });
 
-  DrawTool.init(canvas, 1000, 700, requestNote);
+  DrawTool.init(canvas, 1000, 700, requestNote, eraseAt);
   loadProject();
 });

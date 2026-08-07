@@ -252,6 +252,7 @@ h1, h2, h3 {
   background: var(--border); color: var(--ink);
 }
 .version-badge.ai { background: var(--accent); color: #fff; }
+.version-badge.edited { background: var(--success); color: #fff; }
 .version-badge.failed { background: var(--danger); color: #fff; }
 
 .source-thumb { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
