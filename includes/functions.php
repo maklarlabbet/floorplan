@@ -51,7 +51,7 @@ function claude_analyze_image($image_path, $mime_type) {
 
     $body = [
         'model' => ANTHROPIC_MODEL,
-        'max_tokens' => 8000,
+        'max_tokens' => 16000,
         'messages' => [[
             'role' => 'user',
             'content' => [
@@ -83,7 +83,7 @@ function claude_regenerate($current_json, $annotation_summary) {
 
     $body = [
         'model' => ANTHROPIC_MODEL,
-        'max_tokens' => 8000,
+        'max_tokens' => 16000,
         'messages' => [[
             'role' => 'user',
             'content' => $prompt,
