@@ -9,6 +9,7 @@ const DrawTool = (function () {
   let tool = 'pen';
   let color = '#e85d2f';
   let drawing = false;
+  let erasing = false;
   let currentStroke = null;
   let marks = []; // { type: 'stroke', points: [{x,y}], color } | { type: 'note', x, y, text }
   let canvasDataW = 1000, canvasDataH = 700;
@@ -71,16 +72,19 @@ const DrawTool = (function () {
       const pos = toDataCoords(evt);
       if (onNoteRequested) onNoteRequested(pos, evt);
     } else if (tool === 'eraser') {
-      const pos = toDataCoords(evt);
-      if (onErase) onErase(pos);
+      erasing = true;
+      if (onErase) onErase(toDataCoords(evt));
     }
   }
 
   function handleMove(evt) {
-    if (!drawing || tool !== 'pen') return;
-    currentStroke.points.push(toDataCoords(evt));
-    redraw();
-    drawStrokeInProgress();
+    if (drawing && tool === 'pen') {
+      currentStroke.points.push(toDataCoords(evt));
+      redraw();
+      drawStrokeInProgress();
+    } else if (erasing && tool === 'eraser') {
+      if (onErase) onErase(toDataCoords(evt));
+    }
   }
 
   function drawStrokeInProgress() {
@@ -102,6 +106,7 @@ const DrawTool = (function () {
       marks.push(currentStroke);
     }
     drawing = false;
+    erasing = false;
     currentStroke = null;
     redraw();
   }

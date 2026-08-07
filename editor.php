@@ -58,7 +58,7 @@ $project = $stmt->get_result()->fetch_assoc();
       <div class="tool-group">
         <button class="tool-btn active" data-tool="pen" title="Draw / mark changes">✎ Pen</button>
         <button class="tool-btn" data-tool="note" title="Add a text note">💬 Note</button>
-        <button class="tool-btn" data-tool="eraser" title="Click a wall/door/window/stairs/room to remove it">🧹 Eraser</button>
+        <button class="tool-btn" data-tool="eraser" title="Click or drag across walls/doors/windows/stairs/rooms to remove them">🧹 Eraser</button>
         <button class="tool-btn" data-tool="pan" title="Pan / select">🖐 Select</button>
       </div>
       <div class="tool-group">
