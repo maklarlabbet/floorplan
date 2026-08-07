@@ -98,6 +98,17 @@ $(function () {
   $('#btn-undo-mark').on('click', () => DrawTool.undo());
   $('#btn-clear-marks').on('click', () => DrawTool.clear());
 
+  $('#btn-view-json').on('click', function () {
+    const $view = $('#json-view');
+    if (!$view.prop('hidden')) { $view.prop('hidden', true); return; }
+    if (!activeVersion || !activeVersion.floorplan) {
+      alert('No floorplan JSON for the selected version yet.');
+      return;
+    }
+    $view.val(JSON.stringify(activeVersion.floorplan, null, 2)).prop('hidden', false);
+    $view.trigger('focus').trigger('select');
+  });
+
   $('#btn-download').on('click', function () {
     if (!activeVersion || !activeVersion.floorplan) return;
     const svgStr = serializeSvgForDownload(svg);

@@ -22,7 +22,7 @@ $project = $stmt->get_result()->fetch_assoc();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= htmlspecialchars($project['name']) ?> · Floorplan Studio</title>
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="<?= asset_url('assets/css/style.css') ?>">
 </head>
 <body class="editor-body" data-project-id="<?= (int)$project_id ?>">
 <?php include __DIR__ . '/includes/nav.php'; ?>
@@ -43,6 +43,12 @@ $project = $stmt->get_result()->fetch_assoc();
     <div class="sidebar-section">
       <p class="eyebrow">Source Image</p>
       <div id="source-thumb" class="source-thumb"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <p class="eyebrow">Debug</p>
+      <button class="btn btn-ghost" id="btn-view-json">View raw JSON</button>
+      <textarea id="json-view" class="json-view" readonly hidden></textarea>
     </div>
   </aside>
 
@@ -97,8 +103,8 @@ $project = $stmt->get_result()->fetch_assoc();
 </div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="assets/js/floorplan-renderer.js"></script>
-<script src="assets/js/draw-tool.js"></script>
-<script src="assets/js/editor.js"></script>
+<script src="<?= asset_url('assets/js/floorplan-renderer.js') ?>"></script>
+<script src="<?= asset_url('assets/js/draw-tool.js') ?>"></script>
+<script src="<?= asset_url('assets/js/editor.js') ?>"></script>
 </body>
 </html>

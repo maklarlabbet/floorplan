@@ -22,7 +22,7 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Floorplan Studio</title>
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="<?= asset_url('assets/css/style.css') ?>">
 </head>
 <body>
 <?php include __DIR__ . '/includes/nav.php'; ?>
@@ -90,6 +90,6 @@ $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 </div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="assets/js/app.js"></script>
+<script src="<?= asset_url('assets/js/app.js') ?>"></script>
 </body>
 </html>
