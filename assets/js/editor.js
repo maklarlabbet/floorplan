@@ -6,14 +6,8 @@ $(function () {
   let activeVersion = null;
   let pendingNotePos = null;
   let hasPendingEdits = false;
-
-  function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
-    const dx = x2 - x1, dy = y2 - y1;
-    const lenSq = dx * dx + dy * dy;
-    let t = lenSq === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
-    t = Math.max(0, Math.min(1, t));
-    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-  }
+  let wallPieceCounter = 0;
+  const ERASER_RADIUS = 10; // data-space units the eraser reaches on each side of the cursor
 
   function pointInPolygon(px, py, polygon) {
     let inside = false;
@@ -39,24 +33,63 @@ $(function () {
         return { type: 'stairs', id: s.id };
       }
     }
-    for (const w of floorplan.walls || []) {
-      if (pointToSegmentDistance(pt.x, pt.y, w.x1, w.y1, w.x2, w.y2) <= (w.thickness || 6) / 2 + TOL) return { type: 'walls', id: w.id };
-    }
     for (const r of floorplan.rooms || []) {
       if (r.polygon && r.polygon.length >= 3 && pointInPolygon(pt.x, pt.y, r.polygon)) return { type: 'rooms', id: r.id };
     }
     return null;
   }
 
+  // Trims the portion of a wall within `radius` of pt, like an eraser disc passing over it.
+  // Returns the remaining wall piece(s) (0, 1, or 2) and whether anything was actually cut.
+  function eraseWallSegment(w, pt, radius) {
+    const dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return { pieces: [w], changed: false };
+
+    const R = radius + (w.thickness || 6) / 2;
+    const fx = w.x1 - pt.x, fy = w.y1 - pt.y;
+    const a = lenSq;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - R * R;
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) return { pieces: [w], changed: false }; // eraser disc doesn't reach this wall
+
+    const sqrtDisc = Math.sqrt(disc);
+    let t1 = Math.max(0, Math.min(1, (-b - sqrtDisc) / (2 * a)));
+    let t2 = Math.max(0, Math.min(1, (-b + sqrtDisc) / (2 * a)));
+    if (t1 >= t2) return { pieces: [w], changed: false }; // erased range falls outside the actual segment
+
+    const MIN_FRAC = 0.02; // drop leftover slivers too small to matter
+    const pieces = [];
+    if (t1 > MIN_FRAC) pieces.push({ ...w, id: 'w' + (++wallPieceCounter), x2: w.x1 + t1 * dx, y2: w.y1 + t1 * dy });
+    if (t2 < 1 - MIN_FRAC) pieces.push({ ...w, id: 'w' + (++wallPieceCounter), x1: w.x1 + t2 * dx, y1: w.y1 + t2 * dy });
+    return { pieces, changed: true };
+  }
+
   function eraseAt(pos) {
     if (!activeVersion || !activeVersion.floorplan) return;
-    const hit = findFloorplanHit(activeVersion.floorplan, pos);
-    if (!hit) return;
-    const arr = activeVersion.floorplan[hit.type];
-    const idx = arr.findIndex(item => item.id === hit.id);
-    if (idx === -1) return;
-    arr.splice(idx, 1);
-    renderFloorplan(svg, activeVersion.floorplan);
+    const fp = activeVersion.floorplan;
+    let changed = false;
+
+    const nextWalls = [];
+    (fp.walls || []).forEach(w => {
+      const { pieces, changed: wallChanged } = eraseWallSegment(w, pos, ERASER_RADIUS);
+      if (wallChanged) changed = true;
+      nextWalls.push(...pieces);
+    });
+    fp.walls = nextWalls;
+
+    // Doors/windows/stairs/rooms don't have a clean "partial" erase — a half-erased door or
+    // stairs box doesn't mean anything, so touching one removes it entirely.
+    const hit = findFloorplanHit(fp, pos);
+    if (hit) {
+      const arr = fp[hit.type];
+      const idx = arr.findIndex(item => item.id === hit.id);
+      if (idx !== -1) { arr.splice(idx, 1); changed = true; }
+    }
+
+    if (!changed) return;
+    renderFloorplan(svg, fp);
     hasPendingEdits = true;
     $('#btn-save-edits').prop('hidden', false);
   }
