@@ -88,10 +88,21 @@ function renderFloorplan(svgEl, data) {
     const vertical = stair.orientation === 'vertical';
     const steps = Math.max(2, stair.steps);
     const up = stair.direction !== 'down';
-
     const runLength = vertical ? height : width;
+    const stepLen = runLength / steps;
+
+    // Alternate a light tint on every other step cell so the treads read as steps
+    // with depth, rather than a flat ladder of evenly spaced lines.
+    for (let i = 0; i < steps; i += 2) {
+      const from = i * stepLen, to = Math.min(runLength, (i + 1) * stepLen);
+      const bandAttrs = vertical
+        ? { x, y: y + from, width, height: to - from }
+        : { x: x + from, y, width: to - from, height };
+      svgEl.appendChild(el('rect', { ...bandAttrs, class: 'fp-stairs-band' }));
+    }
+
     for (let i = 1; i < steps; i++) {
-      const pos = (i / steps) * runLength;
+      const pos = i * stepLen;
       const line = vertical
         ? { x1: x, y1: y + pos, x2: x + width, y2: y + pos }
         : { x1: x + pos, y1: y, x2: x + pos, y2: y + height };
@@ -99,8 +110,8 @@ function renderFloorplan(svgEl, data) {
     }
 
     const midCross = vertical ? x + width / 2 : y + height / 2;
-    const start = up ? runLength * 0.15 : runLength * 0.85;
-    const end = up ? runLength * 0.85 : runLength * 0.15;
+    const start = up ? runLength * 0.08 : runLength * 0.92;
+    const end = up ? runLength * 0.92 : runLength * 0.08;
     const arrowLine = vertical
       ? { x1: midCross, y1: y + start, x2: midCross, y2: y + end }
       : { x1: x + start, y1: midCross, x2: x + end, y2: midCross };
@@ -124,9 +135,10 @@ function serializeSvgForDownload(svgEl) {
     .fp-room-label{font-family:monospace;font-size:14px;fill:#1d2b3a;text-anchor:middle}
     .fp-door-arc{fill:none;stroke:#2f5a7c;stroke-width:1.4;stroke-dasharray:3 2}
     .fp-window{stroke:#2f5a7c;stroke-width:3}
-    .fp-stairs{fill:none;stroke:#1d2b3a;stroke-width:1}
+    .fp-stairs{fill:none;stroke:#1d2b3a;stroke-width:1.5}
+    .fp-stairs-band{fill:#dbe6ee;fill-opacity:.4;stroke:none}
     .fp-stairs-tread{stroke:#1d2b3a;stroke-width:1}
-    .fp-stairs-arrow{stroke:#1d2b3a;stroke-width:1.4}
+    .fp-stairs-arrow{stroke:#1d2b3a;stroke-width:1.8}
     .fp-stairs-arrow-head{fill:#1d2b3a}
   `;
   clone.insertBefore(style, clone.firstChild);
