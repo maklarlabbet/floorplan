@@ -107,16 +107,7 @@ function renderFloorplan(svgEl, data) {
     svgEl.appendChild(el('line', { ...arrowLine, class: 'fp-stairs-arrow', 'marker-end': 'url(#fp-arrowhead)' }));
   });
 
-  // Dimension lines
-  (data.dimensions || []).forEach(dim => {
-    if (!dim.from || !dim.to) return;
-    svgEl.appendChild(el('line', { x1: dim.from[0], y1: dim.from[1], x2: dim.to[0], y2: dim.to[1], class: 'fp-dim-line' }));
-    const mx = (dim.from[0] + dim.to[0]) / 2;
-    const my = (dim.from[1] + dim.to[1]) / 2 - 6;
-    const t = el('text', { x: mx, y: my, class: 'fp-dim-label' });
-    t.textContent = dim.label || '';
-    svgEl.appendChild(t);
-  });
+  // Dimension lines from "dimensions" are intentionally not drawn on the floorplan.
 
   // Notes (e.g. assumptions Claude made) are shown via the "Notes" button/modal
   // in editor.js instead of being drawn on the floorplan itself.
@@ -133,8 +124,6 @@ function serializeSvgForDownload(svgEl) {
     .fp-room-label{font-family:monospace;font-size:14px;fill:#1d2b3a;text-anchor:middle}
     .fp-door-arc{fill:none;stroke:#2f5a7c;stroke-width:1.4;stroke-dasharray:3 2}
     .fp-window{stroke:#2f5a7c;stroke-width:3}
-    .fp-dim-line{stroke:#4a5a68;stroke-width:.7}
-    .fp-dim-label{font-family:monospace;font-size:10px;fill:#4a5a68;text-anchor:middle}
     .fp-stairs{fill:none;stroke:#1d2b3a;stroke-width:1}
     .fp-stairs-tread{stroke:#1d2b3a;stroke-width:1}
     .fp-stairs-arrow{stroke:#1d2b3a;stroke-width:1.4}
