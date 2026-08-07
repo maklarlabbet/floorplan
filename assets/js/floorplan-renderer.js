@@ -118,13 +118,8 @@ function renderFloorplan(svgEl, data) {
     svgEl.appendChild(t);
   });
 
-  // Notes left over from a previous AI pass (e.g. assumptions Claude made)
-  (data.notes || []).forEach(note => {
-    svgEl.appendChild(el('circle', { cx: note.x, cy: note.y, r: 3, class: 'fp-note-marker' }));
-    const t = el('text', { x: note.x + 6, y: note.y + 4, class: 'fp-note-text' });
-    t.textContent = note.text || '';
-    svgEl.appendChild(t);
-  });
+  // Notes (e.g. assumptions Claude made) are shown via the "Notes" button/modal
+  // in editor.js instead of being drawn on the floorplan itself.
 }
 
 function serializeSvgForDownload(svgEl) {
@@ -140,8 +135,6 @@ function serializeSvgForDownload(svgEl) {
     .fp-window{stroke:#2f5a7c;stroke-width:3}
     .fp-dim-line{stroke:#4a5a68;stroke-width:.7}
     .fp-dim-label{font-family:monospace;font-size:10px;fill:#4a5a68;text-anchor:middle}
-    .fp-note-marker{fill:#e85d2f}
-    .fp-note-text{font-family:sans-serif;font-size:11px;fill:#1d2b3a}
     .fp-stairs{fill:none;stroke:#1d2b3a;stroke-width:1}
     .fp-stairs-tread{stroke:#1d2b3a;stroke-width:1}
     .fp-stairs-arrow{stroke:#1d2b3a;stroke-width:1.4}

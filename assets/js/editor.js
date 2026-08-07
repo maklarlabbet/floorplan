@@ -98,6 +98,18 @@ $(function () {
   $('#btn-undo-mark').on('click', () => DrawTool.undo());
   $('#btn-clear-marks').on('click', () => DrawTool.clear());
 
+  $('#btn-notes').on('click', function () {
+    const notes = (activeVersion && activeVersion.floorplan && activeVersion.floorplan.notes) || [];
+    const $list = $('#notes-list').empty();
+    if (notes.length === 0) {
+      $list.append($('<p class="form-note">').text('No notes for this version.'));
+    } else {
+      notes.forEach(n => $list.append($('<p>').text(n.text || '')));
+    }
+    $('#notes-modal').prop('hidden', false);
+  });
+  $('#notes-close').on('click', () => $('#notes-modal').prop('hidden', true));
+
   $('#btn-view-json').on('click', function () {
     const $view = $('#json-view');
     if (!$view.prop('hidden')) { $view.prop('hidden', true); return; }

@@ -70,6 +70,7 @@ $project = $stmt->get_result()->fetch_assoc();
         <button class="btn btn-ghost" id="btn-clear-marks">Clear marks</button>
       </div>
       <div class="tool-group tool-group-right">
+        <button class="btn btn-ghost" id="btn-notes">Notes</button>
         <button class="btn btn-ghost" id="btn-download">Download SVG</button>
         <button class="btn btn-primary" id="btn-regenerate">Apply changes with Claude</button>
       </div>
@@ -99,6 +100,17 @@ $project = $stmt->get_result()->fetch_assoc();
   <div class="note-popup-actions">
     <button class="btn btn-ghost" id="note-cancel">Cancel</button>
     <button class="btn btn-primary" id="note-save">Add</button>
+  </div>
+</div>
+
+<!-- Claude's assumption notes for the current version -->
+<div class="modal" id="notes-modal" hidden>
+  <div class="modal-card">
+    <h2>Notes</h2>
+    <div id="notes-list" class="notes-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="notes-close">Close</button>
+    </div>
   </div>
 </div>
 
