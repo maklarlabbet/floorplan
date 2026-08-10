@@ -74,8 +74,8 @@ function renderFloorplan(svgEl, data) {
   });
 
   // Stairs: bounding box + evenly spaced tread lines across the run + a centerline arrow
-  // pointing toward whichever corner "arrow_end" names — the direction of travel down the
-  // stairwell, matching whatever the source drawing's arrowhead or UP/DN label indicated.
+  // pointing toward the lower floor (the direction of descent — matches the common "DN"
+  // wayfinding convention: the arrow shows the way down, not the way back up to this level).
   (data.stairs || []).forEach(stair => {
     const x = stair.x || 0, y = stair.y || 0;
     const width = stair.width || 0, height = stair.height || 0;
@@ -88,18 +88,9 @@ function renderFloorplan(svgEl, data) {
 
     const vertical = stair.orientation === 'vertical';
     const steps = Math.max(2, stair.steps);
+    const up = stair.direction !== 'down';
     const runLength = vertical ? height : width;
     const stepLen = runLength / steps;
-
-    // "arrow_end" is the current field ("start" = the (x,y) corner, "end" = the opposite
-    // (x+width,y+height) corner). Older stored data (before this field existed) only has
-    // "direction" ("up"/"down") — fall back to that, using the same mapping this app has
-    // used since the direction-arrow fix: direction:"down" -> arrow_end:"end".
-    let arrowEnd = stair.arrow_end;
-    if (arrowEnd !== 'start' && arrowEnd !== 'end') {
-      arrowEnd = stair.direction === 'down' ? 'end' : 'start';
-    }
-    const pointsToFarCorner = arrowEnd === 'end';
 
     // Alternate a light tint on every other step cell so the treads read as steps
     // with depth, rather than a flat ladder of evenly spaced lines.
@@ -120,11 +111,15 @@ function renderFloorplan(svgEl, data) {
     }
 
     const midCross = vertical ? x + width / 2 : y + height / 2;
-    const arrowFrom = pointsToFarCorner ? runLength * 0.08 : runLength * 0.92;
-    const arrowTo = pointsToFarCorner ? runLength * 0.92 : runLength * 0.08;
+    // "direction":"up" means (x,y) is the LOWER corner (schema: ascending FROM (x,y) TOWARD
+    // (x+width,y+height)) — so the arrowhead, pointing toward descent, belongs at the (x,y)
+    // end. "down" means (x,y) is the HIGHER corner, so the arrowhead belongs at the
+    // (x+width,y+height) end instead. This is the mirror image of "point toward higher".
+    const start = up ? runLength * 0.92 : runLength * 0.08;
+    const end = up ? runLength * 0.08 : runLength * 0.92;
     const arrowLine = vertical
-      ? { x1: midCross, y1: y + arrowFrom, x2: midCross, y2: y + arrowTo }
-      : { x1: x + arrowFrom, y1: midCross, x2: x + arrowTo, y2: midCross };
+      ? { x1: midCross, y1: y + start, x2: midCross, y2: y + end }
+      : { x1: x + start, y1: midCross, x2: x + end, y2: midCross };
     svgEl.appendChild(el('line', { ...arrowLine, class: 'fp-stairs-arrow', 'marker-end': 'url(#fp-arrowhead)' }));
   });
 
