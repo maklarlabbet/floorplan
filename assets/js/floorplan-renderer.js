@@ -74,7 +74,8 @@ function renderFloorplan(svgEl, data) {
   });
 
   // Stairs: bounding box + evenly spaced tread lines across the run + a centerline arrow
-  // pointing toward the higher floor (the standard architectural stair symbol).
+  // pointing toward the lower floor (the direction of descent — matches the common "DN"
+  // wayfinding convention: the arrow shows the way down, not the way back up to this level).
   (data.stairs || []).forEach(stair => {
     const x = stair.x || 0, y = stair.y || 0;
     const width = stair.width || 0, height = stair.height || 0;
@@ -110,8 +111,12 @@ function renderFloorplan(svgEl, data) {
     }
 
     const midCross = vertical ? x + width / 2 : y + height / 2;
-    const start = up ? runLength * 0.08 : runLength * 0.92;
-    const end = up ? runLength * 0.92 : runLength * 0.08;
+    // "direction":"up" means (x,y) is the LOWER corner (schema: ascending FROM (x,y) TOWARD
+    // (x+width,y+height)) — so the arrowhead, pointing toward descent, belongs at the (x,y)
+    // end. "down" means (x,y) is the HIGHER corner, so the arrowhead belongs at the
+    // (x+width,y+height) end instead. This is the mirror image of "point toward higher".
+    const start = up ? runLength * 0.92 : runLength * 0.08;
+    const end = up ? runLength * 0.08 : runLength * 0.92;
     const arrowLine = vertical
       ? { x1: midCross, y1: y + start, x2: midCross, y2: y + end }
       : { x1: x + start, y1: midCross, x2: x + end, y2: midCross };
