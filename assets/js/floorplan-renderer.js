@@ -154,6 +154,14 @@ function renderFloorplan(svgEl, data) {
 
   // Notes (e.g. assumptions Claude made) are shown via the "Notes" button/modal
   // in editor.js instead of being drawn on the floorplan itself.
+
+  // Text labels: user-placed text (added/edited with the "Text" tool), distinct from
+  // Claude's own "notes" assumptions above — these are actual floorplan content.
+  (data.text_labels || []).forEach(label => {
+    const t = el('text', { x: label.x, y: label.y, class: 'fp-text-label' });
+    t.textContent = label.text || '';
+    svgEl.appendChild(t);
+  });
 }
 
 function serializeSvgForDownload(svgEl) {
@@ -172,6 +180,7 @@ function serializeSvgForDownload(svgEl) {
     .fp-stairs-tread{stroke:#1d2b3a;stroke-width:1}
     .fp-stairs-arrow{stroke:#1d2b3a;stroke-width:1.8}
     .fp-stairs-arrow-head{fill:#1d2b3a}
+    .fp-text-label{font-family:monospace;font-size:14px;fill:#1d2b3a;text-anchor:start}
   `;
   clone.insertBefore(style, clone.firstChild);
   return new XMLSerializer().serializeToString(clone);

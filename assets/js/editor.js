@@ -7,6 +7,8 @@ $(function () {
   let pendingNotePos = null;
   let hasPendingEdits = false;
   let wallPieceCounter = 0;
+  let textLabelCounter = 0;
+  let pendingTextLabel = null; // { mode: 'add', pos } | { mode: 'edit', existing }
   const ERASER_RADIUS = 10; // data-space units the eraser reaches on each side of the cursor
 
   function pointInPolygon(px, py, polygon) {
@@ -35,6 +37,18 @@ $(function () {
     }
     for (const r of floorplan.rooms || []) {
       if (r.polygon && r.polygon.length >= 3 && pointInPolygon(pt.x, pt.y, r.polygon)) return { type: 'rooms', id: r.id };
+    }
+    return null;
+  }
+
+  // Text labels have no fixed size in the schema, so estimate a click target from the
+  // rendered text's approximate width (monospace, ~6.5px/char at the renderer's 14px font).
+  function findTextLabelHit(floorplan, pt) {
+    const labels = floorplan.text_labels || [];
+    for (let i = labels.length - 1; i >= 0; i--) {
+      const l = labels[i];
+      const w = Math.max(20, (l.text || '').length * 6.5);
+      if (pt.x >= l.x - 4 && pt.x <= l.x + w + 4 && pt.y >= l.y - 14 && pt.y <= l.y + 4) return l;
     }
     return null;
   }
@@ -297,6 +311,63 @@ $(function () {
     $('#note-popup').prop('hidden', true);
   });
 
-  DrawTool.init(canvas, 1000, 700, requestNote, eraseAt);
+  // ---- Text label popup ----
+  // Direct floorplan edit (like the eraser) rather than a Claude annotation — clicking an
+  // existing label edits/deletes it in place, saved via the same save_edit.php flow.
+  function requestTextLabel(pos, evt) {
+    if (!activeVersion || !activeVersion.floorplan) return;
+    const hit = findTextLabelHit(activeVersion.floorplan, pos);
+    const rect = canvas.getBoundingClientRect();
+    const px = evt.clientX - rect.left;
+    const py = evt.clientY - rect.top;
+    if (hit) {
+      pendingTextLabel = { mode: 'edit', existing: hit };
+      $('#text-label-text').val(hit.text || '');
+      $('#text-label-delete').prop('hidden', false);
+    } else {
+      pendingTextLabel = { mode: 'add', pos };
+      $('#text-label-text').val('');
+      $('#text-label-delete').prop('hidden', true);
+    }
+    $('#text-label-popup').css({ left: px + 'px', top: py + 'px' }).prop('hidden', false);
+    $('#text-label-text').trigger('focus');
+  }
+
+  function applyTextLabelEdit(fp) {
+    renderFloorplan(svg, fp);
+    hasPendingEdits = true;
+    $('#btn-save-edits').prop('hidden', false);
+    $('#text-label-popup').prop('hidden', true);
+    pendingTextLabel = null;
+  }
+
+  $('#text-label-cancel').on('click', () => { $('#text-label-popup').prop('hidden', true); pendingTextLabel = null; });
+  $('#text-label-save').on('click', function () {
+    if (!pendingTextLabel || !activeVersion || !activeVersion.floorplan) { $('#text-label-popup').prop('hidden', true); return; }
+    const fp = activeVersion.floorplan;
+    const text = $('#text-label-text').val().trim();
+    if (pendingTextLabel.mode === 'edit') {
+      if (text) {
+        pendingTextLabel.existing.text = text;
+      } else {
+        fp.text_labels = (fp.text_labels || []).filter(l => l !== pendingTextLabel.existing);
+      }
+    } else if (text) {
+      fp.text_labels = fp.text_labels || [];
+      fp.text_labels.push({ id: 't' + (++textLabelCounter), x: pendingTextLabel.pos.x, y: pendingTextLabel.pos.y, text });
+    }
+    applyTextLabelEdit(fp);
+  });
+  $('#text-label-delete').on('click', function () {
+    if (!pendingTextLabel || pendingTextLabel.mode !== 'edit' || !activeVersion || !activeVersion.floorplan) {
+      $('#text-label-popup').prop('hidden', true);
+      return;
+    }
+    const fp = activeVersion.floorplan;
+    fp.text_labels = (fp.text_labels || []).filter(l => l !== pendingTextLabel.existing);
+    applyTextLabelEdit(fp);
+  });
+
+  DrawTool.init(canvas, 1000, 700, requestNote, eraseAt, requestTextLabel);
   loadProject();
 });

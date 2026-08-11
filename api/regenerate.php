@@ -52,6 +52,11 @@ if (!$result['ok']) {
     json_response(['ok' => false, 'error' => $result['error'], 'debug' => $result['debug'] ?? null, 'raw' => $result['raw'] ?? null], 502);
 }
 
+// Claude's schema doesn't know about user-placed text labels, so carry them over from the
+// base version untouched rather than risk Claude dropping or garbling them on regenerate.
+$base_floorplan = json_decode($base['floorplan_json'], true);
+$result['json']['text_labels'] = $base_floorplan['text_labels'] ?? [];
+
 $new_version_number = next_version_number($project_id);
 $json_str = json_encode($result['json']);
 $annotation_str = json_encode($annotations);

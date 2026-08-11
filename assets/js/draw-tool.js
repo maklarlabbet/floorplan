@@ -15,6 +15,7 @@ const DrawTool = (function () {
   let canvasDataW = 1000, canvasDataH = 700;
   let onNoteRequested = null;
   let onErase = null;
+  let onTextRequested = null;
 
   function toDataCoords(evt) {
     const rect = canvas.getBoundingClientRect();
@@ -74,6 +75,9 @@ const DrawTool = (function () {
     } else if (tool === 'eraser') {
       erasing = true;
       if (onErase) onErase(toDataCoords(evt));
+    } else if (tool === 'text') {
+      const pos = toDataCoords(evt);
+      if (onTextRequested) onTextRequested(pos, evt);
     }
   }
 
@@ -112,12 +116,13 @@ const DrawTool = (function () {
   }
 
   return {
-    init(canvasEl, dataW, dataH, noteCallback, eraseCallback) {
+    init(canvasEl, dataW, dataH, noteCallback, eraseCallback, textCallback) {
       canvas = canvasEl;
       ctx = canvas.getContext('2d');
       canvasDataW = dataW; canvasDataH = dataH;
       onNoteRequested = noteCallback;
       onErase = eraseCallback;
+      onTextRequested = textCallback;
 
       canvas.addEventListener('mousedown', handleDown);
       canvas.addEventListener('mousemove', handleMove);

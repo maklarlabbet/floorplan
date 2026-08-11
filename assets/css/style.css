@@ -336,6 +336,7 @@ h1, h2, h3 {
 .fp-wall { stroke: var(--ink); }
 .fp-room { fill: var(--blueprint-pale); fill-opacity: 0.45; stroke: none; }
 .fp-room-label { font-family: var(--font-data); font-size: 14px; fill: var(--ink); text-anchor: middle; }
+.fp-text-label { font-family: var(--font-data); font-size: 14px; fill: var(--ink); text-anchor: start; }
 .fp-door-arc { fill: none; stroke: var(--blueprint); stroke-width: 1.4; stroke-dasharray: 3 2; }
 .fp-window { stroke: var(--blueprint); stroke-width: 3; }
 .fp-stairs { fill: none; stroke: var(--ink); stroke-width: 1.5; }

@@ -58,6 +58,7 @@ $project = $stmt->get_result()->fetch_assoc();
       <div class="tool-group">
         <button class="tool-btn active" data-tool="pen" title="Draw / mark changes">✎ Pen</button>
         <button class="tool-btn" data-tool="note" title="Add a text note">💬 Note</button>
+        <button class="tool-btn" data-tool="text" title="Click to add a text label on the floorplan; click an existing label to edit or delete it">🔤 Text</button>
         <button class="tool-btn" data-tool="eraser" title="Click or drag across walls/doors/windows/stairs/rooms to remove them">🧹 Eraser</button>
         <button class="tool-btn" data-tool="pan" title="Pan / select">🖐 Select</button>
       </div>
@@ -92,7 +93,7 @@ $project = $stmt->get_result()->fetch_assoc();
       </div>
     </div>
 
-    <p class="hint">Draw over walls to remove them, draw a loop to suggest a new room, or use the note tool to describe a change (e.g. "make this bedroom bigger"). Then click <strong>Apply changes with Claude</strong>.</p>
+    <p class="hint">Draw over walls to remove them, draw a loop to suggest a new room, or use the note tool to describe a change (e.g. "make this bedroom bigger"). Use the Text tool to add labels directly on the floorplan (click an existing label to edit or delete it) — these save immediately and don't need Claude. Then click <strong>Apply changes with Claude</strong> for everything else.</p>
   </main>
 </div>
 
@@ -102,6 +103,16 @@ $project = $stmt->get_result()->fetch_assoc();
   <div class="note-popup-actions">
     <button class="btn btn-ghost" id="note-cancel">Cancel</button>
     <button class="btn btn-primary" id="note-save">Add</button>
+  </div>
+</div>
+
+<!-- Text label input popup -->
+<div class="note-popup" id="text-label-popup" hidden>
+  <textarea id="text-label-text" placeholder="Label text…" rows="2"></textarea>
+  <div class="note-popup-actions">
+    <button class="btn btn-ghost" id="text-label-delete" hidden>Delete</button>
+    <button class="btn btn-ghost" id="text-label-cancel">Cancel</button>
+    <button class="btn btn-primary" id="text-label-save">Save</button>
   </div>
 </div>
 
