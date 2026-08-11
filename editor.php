@@ -45,7 +45,7 @@ $project = $stmt->get_result()->fetch_assoc();
       <div id="source-thumb" class="source-thumb"></div>
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" hidden>
       <p class="eyebrow">Debug</p>
       <button class="btn btn-ghost" id="btn-view-json">View raw JSON</button>
       <textarea id="json-view" class="json-view" readonly hidden></textarea>
