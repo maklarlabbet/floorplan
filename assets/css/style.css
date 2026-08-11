@@ -302,6 +302,8 @@ h1, h2, h3 {
 }
 #floorplan-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 #annotation-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+#annotation-canvas.tool-pan { cursor: grab; }
+#annotation-canvas.tool-pan:active { cursor: grabbing; }
 
 .hint { padding: 10px 20px; margin: 0; font-size: 12.5px; color: var(--ink-soft); background: var(--paper-raised); border-top: 1px solid var(--border); }
 

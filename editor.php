@@ -60,7 +60,7 @@ $project = $stmt->get_result()->fetch_assoc();
         <button class="tool-btn" data-tool="note" title="Add a text note">💬 Note</button>
         <button class="tool-btn" data-tool="text" title="Click to add a text label on the floorplan; click an existing label to edit or delete it">🔤 Text</button>
         <button class="tool-btn" data-tool="eraser" title="Click or drag across walls/doors/windows/stairs/rooms to remove them">🧹 Eraser</button>
-        <button class="tool-btn" data-tool="pan" title="Pan / select">🖐 Select</button>
+        <button class="tool-btn" data-tool="pan" title="Drag an existing pen line to reposition it">🖐 Select</button>
       </div>
       <div class="tool-group">
         <label class="color-swatch" style="--swatch:#e85d2f;"><input type="radio" name="color" value="#e85d2f" checked></label>
@@ -93,7 +93,7 @@ $project = $stmt->get_result()->fetch_assoc();
       </div>
     </div>
 
-    <p class="hint">Draw over walls to remove them, draw a loop to suggest a new room, or use the note tool to describe a change (e.g. "make this bedroom bigger"). Use the Text tool to add labels directly on the floorplan (click an existing label to edit or delete it) — these save immediately and don't need Claude. Then click <strong>Apply changes with Claude</strong> for everything else.</p>
+    <p class="hint">Draw over walls to remove them, draw a loop to suggest a new room, or use the note tool to describe a change (e.g. "make this bedroom bigger"). Use the Select tool to drag a drawn pen line to reposition it. Use the Text tool to add labels directly on the floorplan (click an existing label to edit or delete it) — these save immediately and don't need Claude. Then click <strong>Apply changes with Claude</strong> for everything else.</p>
   </main>
 </div>
 

@@ -16,6 +16,8 @@ const DrawTool = (function () {
   let onNoteRequested = null;
   let onErase = null;
   let onTextRequested = null;
+  let draggingMarkIndex = -1;
+  let dragLastPos = null;
 
   function toDataCoords(evt) {
     const rect = canvas.getBoundingClientRect();
@@ -65,6 +67,29 @@ const DrawTool = (function () {
     });
   }
 
+  // Distance from a point to a line segment, for hit-testing drawn strokes.
+  function distToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  // Finds the topmost (most recently drawn) stroke passing near pt, within tolerance.
+  function findStrokeAt(pt) {
+    const TOL = 8;
+    for (let i = marks.length - 1; i >= 0; i--) {
+      const m = marks[i];
+      if (m.type !== 'stroke') continue;
+      for (let j = 0; j < m.points.length - 1; j++) {
+        const a = m.points[j], b = m.points[j + 1];
+        if (distToSegment(pt.x, pt.y, a.x, a.y, b.x, b.y) <= TOL) return i;
+      }
+    }
+    return -1;
+  }
+
   function handleDown(evt) {
     if (tool === 'pen') {
       drawing = true;
@@ -78,6 +103,13 @@ const DrawTool = (function () {
     } else if (tool === 'text') {
       const pos = toDataCoords(evt);
       if (onTextRequested) onTextRequested(pos, evt);
+    } else if (tool === 'pan') {
+      const pos = toDataCoords(evt);
+      const idx = findStrokeAt(pos);
+      if (idx !== -1) {
+        draggingMarkIndex = idx;
+        dragLastPos = pos;
+      }
     }
   }
 
@@ -88,6 +120,13 @@ const DrawTool = (function () {
       drawStrokeInProgress();
     } else if (erasing && tool === 'eraser') {
       if (onErase) onErase(toDataCoords(evt));
+    } else if (draggingMarkIndex !== -1 && tool === 'pan') {
+      const pos = toDataCoords(evt);
+      const dx = pos.x - dragLastPos.x, dy = pos.y - dragLastPos.y;
+      const mark = marks[draggingMarkIndex];
+      mark.points = mark.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+      dragLastPos = pos;
+      redraw();
     }
   }
 
@@ -112,6 +151,8 @@ const DrawTool = (function () {
     drawing = false;
     erasing = false;
     currentStroke = null;
+    draggingMarkIndex = -1;
+    dragLastPos = null;
     redraw();
   }
 
@@ -135,7 +176,7 @@ const DrawTool = (function () {
       window.addEventListener('resize', resizeCanvas);
       resizeCanvas();
     },
-    setTool(t) { tool = t; },
+    setTool(t) { tool = t; canvas.classList.toggle('tool-pan', t === 'pan'); },
     setColor(c) { color = c; },
     setCanvasSize(w, h) { canvasDataW = w || 1000; canvasDataH = h || 700; },
     addNote(pos, text) {
