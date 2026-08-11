@@ -89,7 +89,6 @@ function renderFloorplan(svgEl, data) {
     const vertical = stair.orientation === 'vertical';
     const steps = Math.max(2, stair.steps);
     const runLength = vertical ? height : width;
-    const stepLen = runLength / steps;
 
     // Resolve which corner the arrow should point toward, preferring the most reliable
     // signal available. "arrow_point" (a coordinate) is geometrically nearest-corner-matched
@@ -111,10 +110,23 @@ function renderFloorplan(svgEl, data) {
       pointsToFarCorner = stair.direction === 'down';
     }
 
+    // If "turn_at" marks a winder transition, split the run into a flight sub-range (the
+    // straight, treaded portion — on the SAME side as the arrow, since the arrowhead is
+    // always drawn within the flight in the source) and a landing sub-range (the fan/turn
+    // portion, opposite side, rendered as a plain pad with no treads).
+    let flightLo = 0, flightHi = runLength;
+    if (stair.turn_at && typeof stair.turn_at.x === 'number' && typeof stair.turn_at.y === 'number') {
+      const axisPos = vertical ? (stair.turn_at.y - y) : (stair.turn_at.x - x);
+      const clamped = Math.max(runLength * 0.1, Math.min(runLength * 0.9, axisPos));
+      if (pointsToFarCorner) { flightLo = clamped; } else { flightHi = clamped; }
+    }
+    const flightLen = flightHi - flightLo;
+    const stepLen = flightLen / steps;
+
     // Alternate a light tint on every other step cell so the treads read as steps
     // with depth, rather than a flat ladder of evenly spaced lines.
     for (let i = 0; i < steps; i += 2) {
-      const from = i * stepLen, to = Math.min(runLength, (i + 1) * stepLen);
+      const from = flightLo + i * stepLen, to = Math.min(flightHi, flightLo + (i + 1) * stepLen);
       const bandAttrs = vertical
         ? { x, y: y + from, width, height: to - from }
         : { x: x + from, y, width: to - from, height };
@@ -122,7 +134,7 @@ function renderFloorplan(svgEl, data) {
     }
 
     for (let i = 1; i < steps; i++) {
-      const pos = i * stepLen;
+      const pos = flightLo + i * stepLen;
       const line = vertical
         ? { x1: x, y1: y + pos, x2: x + width, y2: y + pos }
         : { x1: x + pos, y1: y, x2: x + pos, y2: y + height };
