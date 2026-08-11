@@ -334,7 +334,7 @@ h1, h2, h3 {
   border-radius: 3px; padding: 6px; resize: vertical;
 }
 .note-popup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-#text-label-popup .btn { padding: 5px 10px; }
+#text-label-popup .btn { padding: 4px 8px; }
 
 /* ---------- Floorplan SVG rendering ---------- */
 .fp-wall { stroke: var(--ink); }
