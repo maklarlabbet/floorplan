@@ -304,12 +304,12 @@ $(function () {
   });
 
   // ---- Note popup ----
+  // #note-popup/#text-label-popup are absolutely positioned but sit outside any positioned
+  // ancestor, so their left/top are relative to the viewport, not the canvas — use the
+  // click's viewport coordinates directly rather than subtracting the canvas's own offset.
   function requestNote(pos, evt) {
     pendingNotePos = pos;
-    const rect = canvas.getBoundingClientRect();
-    const px = evt.clientX - rect.left;
-    const py = evt.clientY - rect.top;
-    $('#note-popup').css({ left: px + 'px', top: py + 'px' }).prop('hidden', false);
+    $('#note-popup').css({ left: evt.clientX + 'px', top: evt.clientY + 'px' }).prop('hidden', false);
     $('#note-text').val('').focus();
   }
   $('#note-cancel').on('click', () => $('#note-popup').prop('hidden', true));
@@ -325,9 +325,7 @@ $(function () {
   function requestTextLabel(pos, evt) {
     if (!activeVersion || !activeVersion.floorplan) return;
     const hit = findTextLabelHit(activeVersion.floorplan, pos);
-    const rect = canvas.getBoundingClientRect();
-    const px = evt.clientX - rect.left;
-    const py = evt.clientY - rect.top;
+    const px = evt.clientX, py = evt.clientY;
     if (hit) {
       pendingTextLabel = { mode: 'edit', existing: hit };
       $('#text-label-text').val(hit.text || '');
