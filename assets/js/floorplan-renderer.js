@@ -74,8 +74,8 @@ function renderFloorplan(svgEl, data) {
   });
 
   // Stairs: bounding box + evenly spaced tread lines across the run + a centerline arrow
-  // pointing toward the lower floor (the direction of descent — matches the common "DN"
-  // wayfinding convention: the arrow shows the way down, not the way back up to this level).
+  // pointing toward whichever corner "arrow_end" names — the direction of travel down the
+  // stairwell, matching whatever the source drawing's arrowhead or UP/DN label indicated.
   (data.stairs || []).forEach(stair => {
     const x = stair.x || 0, y = stair.y || 0;
     const width = stair.width || 0, height = stair.height || 0;
@@ -88,9 +88,28 @@ function renderFloorplan(svgEl, data) {
 
     const vertical = stair.orientation === 'vertical';
     const steps = Math.max(2, stair.steps);
-    const up = stair.direction !== 'down';
     const runLength = vertical ? height : width;
     const stepLen = runLength / steps;
+
+    // Resolve which corner the arrow should point toward, preferring the most reliable
+    // signal available. "arrow_point" (a coordinate) is geometrically nearest-corner-matched
+    // here in code, rather than trusting the model to have already named a corner — naming
+    // the corner itself is exactly the step that proved unreliable in practice (models kept
+    // translating "UP"/"DN" text into the wrong corner). Coordinates are a task the model is
+    // already reliably good at elsewhere in this schema (walls, doors, windows), so this
+    // pushes the unreliable step out of the model's judgment entirely.
+    let pointsToFarCorner;
+    if (stair.arrow_point && typeof stair.arrow_point.x === 'number' && typeof stair.arrow_point.y === 'number') {
+      const dNear = Math.hypot(stair.arrow_point.x - x, stair.arrow_point.y - y);
+      const dFar = Math.hypot(stair.arrow_point.x - (x + width), stair.arrow_point.y - (y + height));
+      pointsToFarCorner = dFar < dNear;
+    } else if (stair.arrow_end === 'start' || stair.arrow_end === 'end') {
+      // Older stored data (previous field generation).
+      pointsToFarCorner = stair.arrow_end === 'end';
+    } else {
+      // Oldest stored data (original field generation, before either fix).
+      pointsToFarCorner = stair.direction === 'down';
+    }
 
     // Alternate a light tint on every other step cell so the treads read as steps
     // with depth, rather than a flat ladder of evenly spaced lines.
@@ -111,15 +130,11 @@ function renderFloorplan(svgEl, data) {
     }
 
     const midCross = vertical ? x + width / 2 : y + height / 2;
-    // "direction":"up" means (x,y) is the LOWER corner (schema: ascending FROM (x,y) TOWARD
-    // (x+width,y+height)) — so the arrowhead, pointing toward descent, belongs at the (x,y)
-    // end. "down" means (x,y) is the HIGHER corner, so the arrowhead belongs at the
-    // (x+width,y+height) end instead. This is the mirror image of "point toward higher".
-    const start = up ? runLength * 0.92 : runLength * 0.08;
-    const end = up ? runLength * 0.08 : runLength * 0.92;
+    const arrowFrom = pointsToFarCorner ? runLength * 0.08 : runLength * 0.92;
+    const arrowTo = pointsToFarCorner ? runLength * 0.92 : runLength * 0.08;
     const arrowLine = vertical
-      ? { x1: midCross, y1: y + start, x2: midCross, y2: y + end }
-      : { x1: x + start, y1: midCross, x2: x + end, y2: midCross };
+      ? { x1: midCross, y1: y + arrowFrom, x2: midCross, y2: y + arrowTo }
+      : { x1: x + arrowFrom, y1: midCross, x2: x + arrowTo, y2: midCross };
     svgEl.appendChild(el('line', { ...arrowLine, class: 'fp-stairs-arrow', 'marker-end': 'url(#fp-arrowhead)' }));
   });
 
