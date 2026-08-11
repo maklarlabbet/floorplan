@@ -2,6 +2,7 @@ $(function () {
   const projectId = $('body').data('project-id');
   const svg = document.getElementById('floorplan-svg');
   const canvas = document.getElementById('annotation-canvas');
+  const stageEl = document.getElementById('stage');
   let versions = [];
   let activeVersion = null;
   let pendingNotePos = null;
@@ -10,6 +11,18 @@ $(function () {
   let textLabelCounter = 0;
   let pendingTextLabel = null; // { mode: 'add', pos } | { mode: 'edit', existing }
   const ERASER_RADIUS = 10; // data-space units the eraser reaches on each side of the cursor
+
+  // .stage's CSS aspect-ratio must match the floorplan's actual canvas.width/height exactly.
+  // A floorplan isn't always 1000x700 (height is normalized but tracks the source photo's
+  // real proportions) — if .stage's box ratio didn't match, the SVG (preserveAspectRatio=
+  // "xMidYMid meet") would letterbox inside it, but the click-tracking <canvas> overlay has
+  // no notion of that letterboxing and maps clicks linearly across its full box regardless —
+  // so clicks would silently land on the wrong floorplan coordinates whenever the ratio differs.
+  function setStageSize(w, h) {
+    w = w || 1000; h = h || 700;
+    stageEl.style.aspectRatio = w + ' / ' + h;
+    DrawTool.setCanvasSize(w, h);
+  }
 
   function pointInPolygon(px, py, polygon) {
     let inside = false;
@@ -196,10 +209,10 @@ $(function () {
     }
     if (v.floorplan) {
       $('#empty-overlay').prop('hidden', true);
-      DrawTool.setCanvasSize(v.floorplan.canvas && v.floorplan.canvas.width, v.floorplan.canvas && v.floorplan.canvas.height);
+      setStageSize(v.floorplan.canvas && v.floorplan.canvas.width, v.floorplan.canvas && v.floorplan.canvas.height);
       renderFloorplan(svg, v.floorplan);
     } else {
-      DrawTool.setCanvasSize(1000, 700);
+      setStageSize(1000, 700);
       renderFloorplan(svg, null);
       $('#empty-overlay').prop('hidden', false).find('p').text('No floorplan data yet for this version.');
     }
