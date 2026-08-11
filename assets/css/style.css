@@ -270,6 +270,7 @@ h1, h2, h3 {
   padding: 10px 20px; background: var(--paper-raised); border-bottom: 1.5px solid var(--border);
 }
 .tool-group { display: flex; gap: 6px; align-items: center; }
+.tool-group[hidden] { display: none; }
 .tool-group-right { margin-left: auto; }
 .tool-btn {
   background: transparent; border: 1.5px solid var(--border); border-radius: 3px;
