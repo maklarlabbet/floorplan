@@ -3,6 +3,8 @@ $(function () {
   const svg = document.getElementById('floorplan-svg');
   const canvas = document.getElementById('annotation-canvas');
   const stageEl = document.getElementById('stage');
+  const stageWrapEl = document.querySelector('.stage-wrap');
+  let currentCanvasW = 1000, currentCanvasH = 700;
   let versions = [];
   let activeVersion = null;
   let pendingNotePos = null;
@@ -12,16 +14,30 @@ $(function () {
   let pendingTextLabel = null; // { mode: 'add', pos } | { mode: 'edit', existing }
   const ERASER_RADIUS = 10; // data-space units the eraser reaches on each side of the cursor
 
-  // .stage's CSS aspect-ratio must match the floorplan's actual canvas.width/height exactly.
-  // A floorplan isn't always 1000x700 (height is normalized but tracks the source photo's
-  // real proportions) — if .stage's box ratio didn't match, the SVG (preserveAspectRatio=
-  // "xMidYMid meet") would letterbox inside it, but the click-tracking <canvas> overlay has
-  // no notion of that letterboxing and maps clicks linearly across its full box regardless —
-  // so clicks would silently land on the wrong floorplan coordinates whenever the ratio differs.
+  // .stage must be sized so its on-screen box has EXACTLY the floorplan's own
+  // canvas.width/height ratio — a floorplan isn't always 1000x700 (height is normalized but
+  // tracks the source photo's real proportions). If .stage's ratio didn't match, the SVG
+  // (preserveAspectRatio="xMidYMid meet") would letterbox inside it, but the click-tracking
+  // <canvas> overlay has no notion of that letterboxing and maps clicks linearly across its
+  // full box regardless — so clicks would silently land on the wrong floorplan coordinates.
+  //
+  // Rather than fix the ratio via CSS aspect-ratio (which only constrains width vs. height
+  // proportionally and lets a tall floorplan grow past the visible area, forcing scrolling
+  // and looking "zoomed in"), compute an explicit width+height here that fits entirely within
+  // the visible stage-wrap area — like object-fit:contain — while still matching the ratio.
+  function fitStage(w, h) {
+    const availW = Math.min(stageWrapEl.clientWidth * 0.94, 1000);
+    const availH = stageWrapEl.clientHeight * 0.94;
+    const scale = Math.min(availW / w, availH / h);
+    stageEl.style.width = Math.round(w * scale) + 'px';
+    stageEl.style.height = Math.round(h * scale) + 'px';
+  }
+
   function setStageSize(w, h) {
-    w = w || 1000; h = h || 700;
-    stageEl.style.aspectRatio = w + ' / ' + h;
-    DrawTool.setCanvasSize(w, h);
+    currentCanvasW = w || 1000;
+    currentCanvasH = h || 700;
+    fitStage(currentCanvasW, currentCanvasH);
+    DrawTool.setCanvasSize(currentCanvasW, currentCanvasH);
   }
 
   function pointInPolygon(px, py, polygon) {
@@ -386,6 +402,8 @@ $(function () {
     fp.text_labels = (fp.text_labels || []).filter(l => l !== pendingTextLabel.existing);
     applyTextLabelEdit(fp);
   });
+
+  window.addEventListener('resize', () => { fitStage(currentCanvasW, currentCanvasH); DrawTool.resize(); });
 
   DrawTool.init(canvas, 1000, 700, requestNote, eraseAt, requestTextLabel);
   loadProject();
