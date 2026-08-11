@@ -62,7 +62,7 @@ $project = $stmt->get_result()->fetch_assoc();
         <button class="tool-btn" data-tool="eraser" title="Click or drag across walls/doors/windows/stairs/rooms to remove them">🧹 Eraser</button>
         <button class="tool-btn" data-tool="pan" title="Drag an existing pen line to reposition it">🖐 Select</button>
       </div>
-      <div class="tool-group">
+      <div class="tool-group" hidden>
         <label class="color-swatch" style="--swatch:#e85d2f;"><input type="radio" name="color" value="#e85d2f" checked></label>
         <label class="color-swatch" style="--swatch:#1d2b3a;"><input type="radio" name="color" value="#1d2b3a"></label>
         <label class="color-swatch" style="--swatch:#2f6f4f;"><input type="radio" name="color" value="#2f6f4f"></label>
