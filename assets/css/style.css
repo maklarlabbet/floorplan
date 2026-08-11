@@ -290,7 +290,7 @@ h1, h2, h3 {
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
     var(--paper);
   background-size: 24px 24px, 24px 24px, auto;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: safe center; justify-content: safe center;
 }
 .stage {
   position: relative;
