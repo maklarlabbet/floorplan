@@ -159,6 +159,7 @@ function renderFloorplan(svgEl, data) {
   // Claude's own "notes" assumptions above — these are actual floorplan content.
   (data.text_labels || []).forEach(label => {
     const t = el('text', { x: label.x, y: label.y, class: 'fp-text-label' });
+    if (label.id) t.setAttribute('data-label-id', label.id);
     t.textContent = label.text || '';
     svgEl.appendChild(t);
   });

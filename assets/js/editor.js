@@ -41,14 +41,22 @@ $(function () {
     return null;
   }
 
-  // Text labels have no fixed size in the schema, so estimate a click target from the
-  // rendered text's approximate width (monospace, ~6.5px/char at the renderer's 14px font).
+  // Hit-test against the actual rendered <text> bounding box (via getBBox) rather than
+  // estimating character width — an estimate drifts from the real glyph metrics (font,
+  // browser, zoom) and makes clicking an existing label to edit it unreliable.
   function findTextLabelHit(floorplan, pt) {
     const labels = floorplan.text_labels || [];
-    for (let i = labels.length - 1; i >= 0; i--) {
-      const l = labels[i];
-      const w = Math.max(20, (l.text || '').length * 6.5);
-      if (pt.x >= l.x - 4 && pt.x <= l.x + w + 4 && pt.y >= l.y - 14 && pt.y <= l.y + 4) return l;
+    const nodes = svg.querySelectorAll('.fp-text-label');
+    const PAD = 6;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const node = nodes[i];
+      let box;
+      try { box = node.getBBox(); } catch (e) { continue; }
+      if (pt.x >= box.x - PAD && pt.x <= box.x + box.width + PAD &&
+          pt.y >= box.y - PAD && pt.y <= box.y + box.height + PAD) {
+        const label = labels.find(l => String(l.id) === node.getAttribute('data-label-id'));
+        if (label) return label;
+      }
     }
     return null;
   }
